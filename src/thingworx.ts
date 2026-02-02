@@ -1,4 +1,5 @@
 import http from "node:http";
+import path from "node:path";
 import * as vscode from "vscode";
 import z from "zod";
 import { Config } from "./config";
@@ -27,11 +28,13 @@ const entityMetaSchema = z.object({
 
 export type EntityMeta = z.infer<typeof entityMetaSchema>;
 
-export type Service = {
-  name: string;
-  source: string;
-  extension: ".js" | ".sql";
-};
+const serviceSchema = z.object({
+  name: z.string(),
+  source: z.string(),
+  extension: z.enum([".js", ".sql"]),
+});
+
+export type Service = z.infer<typeof serviceSchema>;
 
 export interface Entity {
   meta: EntityMeta;
@@ -159,6 +162,53 @@ async function writeEntityService(
   );
   const content = new TextEncoder().encode(service.source);
   await vscode.workspace.fs.writeFile(uri, content);
+}
+
+export async function readEntityServices(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
+): Promise<Service[]> {
+  const folderUri = vscode.Uri.joinPath(
+    rootUri,
+    entityMeta.projectName,
+    entityMeta.name,
+  );
+  const files = await vscode.workspace.fs.readDirectory(folderUri);
+  const results = await Promise.allSettled(
+    files
+      .filter(([, filetype]) => filetype === vscode.FileType.File)
+      .map(([filename]) => readEntityService(folderUri, filename)),
+  );
+  return results
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
+}
+
+async function readEntityService(
+  folderUri: vscode.Uri,
+  filename: string,
+): Promise<Service> {
+  const uri = vscode.Uri.joinPath(folderUri, filename);
+  const extension = path.extname(filename);
+  const name = path.basename(filename, extension);
+  const content = await vscode.workspace.fs.readFile(uri);
+  const service = serviceSchema.parse({
+    name,
+    extension,
+    source: new TextDecoder().decode(content),
+  });
+  return service;
+}
+
+export async function updateEntity(
+  config: Config,
+  entity: Entity,
+): Promise<void> {
+  await thingworxFetch(config, {
+    method: "PUT",
+    endpoint: `/Thingworx/${entity.meta.parentType}/${entity.meta.name}`,
+    body: entity.getSource(),
+  });
 }
 
 async function searchEntityMeta(

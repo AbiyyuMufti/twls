@@ -24,6 +24,11 @@
         "category": "TWLS",
         "command": "twls.pull",
         "title": "Pull"
+      },
+      {
+        "category": "TWLS",
+        "command": "twls.push",
+        "title": "Push"
       }
     ]
   },

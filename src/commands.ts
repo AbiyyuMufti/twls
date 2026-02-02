@@ -17,6 +17,11 @@ export class Commands implements vscode.Disposable {
           console.error(error);
         });
       }),
+      vscode.commands.registerCommand("twls.push", () => {
+        this.push().catch((error) => {
+          console.error(error);
+        });
+      }),
     );
   }
 
@@ -70,6 +75,22 @@ export class Commands implements vscode.Disposable {
     const [entityName, numServicesPulled] = await repo.pull();
     await vscode.window.showInformationMessage(
       `Pulled ${numServicesPulled} service(s) from ${entityName} successfully.`,
+    );
+  }
+
+  async push(): Promise<void> {
+    const repo = await this.model.showRepositoryPick({
+      placeHolder: "Pick repository",
+      ignoreFocusOut: true,
+    });
+
+    if (!repo) {
+      return;
+    }
+
+    const [entityName, numServicesPushed] = await repo.push();
+    await vscode.window.showInformationMessage(
+      `Pushed ${numServicesPushed} service(s) to ${entityName} successfully.`,
     );
   }
 
