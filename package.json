@@ -14,7 +14,13 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": []
+    "commands": [
+      {
+        "category": "TWLS",
+        "command": "twls.init",
+        "title": "Initialize"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

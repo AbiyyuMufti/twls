@@ -3,7 +3,8 @@ import z from "zod";
 
 export function activate(context: vscode.ExtensionContext): void {
   const model = new Model(vscode.workspace.workspaceFolders);
-  context.subscriptions.push(model);
+  const commands = new Commands();
+  context.subscriptions.push(model, commands);
 }
 
 export function deactivate(): void {}
@@ -127,5 +128,78 @@ class Config {
     const json = JSON.parse(new TextDecoder().decode(content)) as unknown;
     const parsed = this.thingworxSchema.parse(json);
     return new Config(rootUri, parsed.baseUrl, parsed.appKey);
+  }
+
+  async save(): Promise<void> {
+    const json = Config.thingworxSchema.parse({
+      baseUrl: this.baseUrl,
+      appKey: this.appKey,
+    });
+    const content = new TextEncoder().encode(JSON.stringify(json, null, 2));
+    await vscode.workspace.fs.writeFile(
+      vscode.Uri.joinPath(
+        this.rootUri,
+        Config.FOLDER_NAME,
+        Config.THINGWORX_FILE_NAME,
+      ),
+      content,
+    );
+  }
+}
+
+class Commands implements vscode.Disposable {
+  private disposables: vscode.Disposable[] = [];
+
+  constructor() {
+    this.disposables.push(
+      vscode.commands.registerCommand("twls.init", () => {
+        this.init().catch((error) => {
+          console.error(error);
+        });
+      }),
+    );
+  }
+
+  async init(): Promise<void> {
+    const folder = await vscode.window.showWorkspaceFolderPick({
+      placeHolder: "Pick workspace",
+      ignoreFocusOut: true,
+    });
+
+    if (!folder) {
+      return;
+    }
+
+    const baseUrl = await vscode.window.showInputBox({
+      prompt: "Enter ThingWorx Base URL",
+      placeHolder: "e.g. http://localhost:8080",
+      ignoreFocusOut: true,
+    });
+
+    if (!baseUrl) {
+      return;
+    }
+
+    const appKey = await vscode.window.showInputBox({
+      prompt: "Enter ThingWorx Application Key",
+      ignoreFocusOut: true,
+    });
+
+    if (!appKey) {
+      return;
+    }
+
+    const config = new Config(folder.uri, baseUrl, appKey);
+    await config.save();
+
+    await vscode.window.showInformationMessage(
+      "TWLS initialized successfully.",
+    );
+  }
+
+  dispose(): void {
+    this.disposables.forEach((disposable) => {
+      disposable.dispose();
+    });
   }
 }
