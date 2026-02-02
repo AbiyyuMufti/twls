@@ -1,13 +1,19 @@
 import * as vscode from "vscode";
 import { Config } from "./config";
+import { Model } from "./model";
 
 export class Commands implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
 
-  constructor() {
+  constructor(private model: Model) {
     this.disposables.push(
       vscode.commands.registerCommand("twls.init", () => {
         this.init().catch((error) => {
+          console.error(error);
+        });
+      }),
+      vscode.commands.registerCommand("twls.pull", () => {
+        this.pull().catch((error) => {
           console.error(error);
         });
       }),
@@ -48,6 +54,22 @@ export class Commands implements vscode.Disposable {
 
     await vscode.window.showInformationMessage(
       "TWLS initialized successfully.",
+    );
+  }
+
+  async pull(): Promise<void> {
+    const repo = await this.model.showRepositoryPick({
+      placeHolder: "Pick repository",
+      ignoreFocusOut: true,
+    });
+
+    if (!repo) {
+      return;
+    }
+
+    const [entityName, numServicesPulled] = await repo.pull();
+    await vscode.window.showInformationMessage(
+      `Pulled ${numServicesPulled} service(s) from ${entityName} successfully.`,
     );
   }
 

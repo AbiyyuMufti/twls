@@ -4,7 +4,7 @@ import { Model } from "./model";
 
 export function activate(context: vscode.ExtensionContext): void {
   const model = new Model(vscode.workspace.workspaceFolders);
-  const commands = new Commands();
+  const commands = new Commands(model);
   context.subscriptions.push(model, commands);
 }
 

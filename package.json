@@ -19,6 +19,11 @@
         "category": "TWLS",
         "command": "twls.init",
         "title": "Initialize"
+      },
+      {
+        "category": "TWLS",
+        "command": "twls.pull",
+        "title": "Pull"
       }
     ]
   },

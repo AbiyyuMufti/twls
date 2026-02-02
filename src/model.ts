@@ -1,3 +1,4 @@
+import path from "node:path";
 import * as vscode from "vscode";
 import { Config } from "./config";
 import { Repository } from "./repository";
@@ -37,6 +38,30 @@ export class Model implements vscode.Disposable {
     this.configWatcher.dispose();
   }
 
+  getRepository(rootUri: vscode.Uri): Repository | undefined {
+    const key = rootUri.toString();
+    return this.repositories.get(key);
+  }
+
+  async showRepositoryPick(
+    options: Pick<vscode.QuickPickOptions, "placeHolder" | "ignoreFocusOut">,
+  ): Promise<Repository | undefined> {
+    const items = Array.from(this.repositories.keys()).map((key) => {
+      const item = {
+        label: path.basename(key),
+        key,
+      };
+      return item satisfies vscode.QuickPickItem;
+    });
+    const selected = await vscode.window.showQuickPick(items, options);
+
+    if (!selected) {
+      return;
+    }
+
+    return this.repositories.get(selected.key);
+  }
+
   private async addRepository(rootUri: vscode.Uri): Promise<void> {
     let config: Config | undefined;
 
@@ -57,7 +82,7 @@ export class Model implements vscode.Disposable {
       this.repositories.delete(key);
     }
 
-    repo = new Repository(config);
+    repo = new Repository(rootUri, config);
     this.repositories.set(key, repo);
 
     console.log(
