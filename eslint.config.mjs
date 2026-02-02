@@ -1,6 +1,10 @@
+import eslint from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import typescriptEslint from "typescript-eslint";
 
-export default [
+export default defineConfig(
+  eslint.configs.recommended,
+  typescriptEslint.configs.recommendedTypeChecked,
   {
     files: ["**/*.ts"],
   },
@@ -13,6 +17,9 @@ export default [
       parser: typescriptEslint.parser,
       ecmaVersion: 2022,
       sourceType: "module",
+      parserOptions: {
+        projectService: true,
+      },
     },
 
     rules: {
@@ -28,6 +35,12 @@ export default [
       eqeqeq: "warn",
       "no-throw-literal": "warn",
       semi: "warn",
+
+      "@typescript-eslint/explicit-function-return-type": "error",
     },
   },
-];
+  {
+    files: ["eslint.config.mjs"],
+    extends: [typescriptEslint.configs.disableTypeChecked],
+  },
+);
