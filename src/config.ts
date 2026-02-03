@@ -44,6 +44,10 @@ export class Config {
     );
   }
 
+  get host(): string {
+    return new URL(this.baseUrl).host;
+  }
+
   async save(): Promise<void> {
     const json = Config.thingworxSchema.parse({
       baseUrl: this.baseUrl,

@@ -1,11 +1,14 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import { Config } from "./config";
+import { REMOTE_SCHEME, RemoteTextDocumentContentProvider } from "./remote";
 import { Repository } from "./repository";
 
 export class Model implements vscode.Disposable {
   private repositories = new Map<string, Repository>();
-  private configWatcher;
+  private configWatcher: vscode.FileSystemWatcher;
+  private remote: RemoteTextDocumentContentProvider;
+  private disposables: vscode.Disposable[] = [];
 
   constructor(folders: readonly vscode.WorkspaceFolder[] | undefined) {
     folders?.forEach((folder) => {
@@ -30,6 +33,15 @@ export class Model implements vscode.Disposable {
     this.configWatcher.onDidDelete((e) => {
       this.removeRepository(Config.getRootUri(e));
     });
+    this.disposables.push(this.configWatcher);
+
+    this.remote = new RemoteTextDocumentContentProvider();
+    this.disposables.push(
+      vscode.workspace.registerTextDocumentContentProvider(
+        REMOTE_SCHEME,
+        this.remote,
+      ),
+    );
   }
 
   dispose(): void {
@@ -38,7 +50,9 @@ export class Model implements vscode.Disposable {
     });
     this.repositories.clear();
 
-    this.configWatcher.dispose();
+    this.disposables.forEach((disposable) => {
+      disposable.dispose();
+    });
   }
 
   getRepository(rootUri: vscode.Uri): Repository | undefined {
@@ -92,6 +106,10 @@ export class Model implements vscode.Disposable {
       return;
     }
 
+    this.remote.updated(config, repo.entity);
+    repo.onEntityChange((entity) => {
+      this.remote.updated(config, entity);
+    });
     this.repositories.set(key, repo);
 
     console.log(

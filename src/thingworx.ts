@@ -36,6 +36,13 @@ const serviceSchema = z.object({
 
 export type Service = z.infer<typeof serviceSchema>;
 
+export function getServiceExtensionPattern(): string {
+  const s = serviceSchema.shape.extension.options
+    .map((ext) => ext.slice(1))
+    .join(",");
+  return `**/*.{${s}}`;
+}
+
 export interface Entity {
   meta: EntityMeta;
   getSource(): unknown;
