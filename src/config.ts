@@ -8,12 +8,14 @@ export class Config {
   private static thingworxSchema = z.object({
     baseUrl: z.url(),
     appKey: z.guid(),
+    entityName: z.string(),
   });
 
   constructor(
     private rootUri: vscode.Uri,
     public baseUrl: string,
     public appKey: string,
+    public entityName: string,
   ) {}
 
   static get globPattern(): vscode.GlobPattern {
@@ -34,13 +36,19 @@ export class Config {
     );
     const json = JSON.parse(new TextDecoder().decode(content)) as unknown;
     const parsed = this.thingworxSchema.parse(json);
-    return new Config(rootUri, parsed.baseUrl, parsed.appKey);
+    return new Config(
+      rootUri,
+      parsed.baseUrl,
+      parsed.appKey,
+      parsed.entityName,
+    );
   }
 
   async save(): Promise<void> {
     const json = Config.thingworxSchema.parse({
       baseUrl: this.baseUrl,
       appKey: this.appKey,
+      entityName: this.entityName,
     });
     const content = new TextEncoder().encode(JSON.stringify(json, null, 2));
     await vscode.workspace.fs.writeFile(

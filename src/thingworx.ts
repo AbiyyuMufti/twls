@@ -211,7 +211,7 @@ export async function updateEntity(
   });
 }
 
-async function searchEntityMeta(
+export async function searchEntityMeta(
   config: Config,
   searchExpression: string,
 ): Promise<EntityMeta[]> {

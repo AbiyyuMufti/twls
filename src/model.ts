@@ -33,6 +33,9 @@ export class Model implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.repositories.forEach((repo) => {
+      repo.dispose();
+    });
     this.repositories.clear();
 
     this.configWatcher.dispose();
@@ -79,10 +82,16 @@ export class Model implements vscode.Disposable {
     let repo = this.repositories.get(key);
 
     if (repo) {
+      repo.dispose();
       this.repositories.delete(key);
     }
 
-    repo = new Repository(rootUri, config);
+    repo = await Repository.init(rootUri, config);
+
+    if (!repo) {
+      return;
+    }
+
     this.repositories.set(key, repo);
 
     console.log(
@@ -92,7 +101,12 @@ export class Model implements vscode.Disposable {
 
   private removeRepository(rootUri: vscode.Uri): void {
     const key = rootUri.toString();
-    this.repositories.delete(key);
+    const repo = this.repositories.get(key);
+
+    if (repo) {
+      repo.dispose();
+      this.repositories.delete(key);
+    }
 
     console.log(
       `[Model][removeRepository] Repository removed: ${rootUri.toString()}`,

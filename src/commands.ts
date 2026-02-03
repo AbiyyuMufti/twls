@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { Config } from "./config";
 import { Model } from "./model";
+import { showEntityMetaPick } from "./thingworx";
 
 export class Commands implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
@@ -54,7 +55,19 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    const config = new Config(folder.uri, baseUrl, appKey);
+    const config = new Config(folder.uri, baseUrl, appKey, "");
+
+    const entityMeta = await showEntityMetaPick(config, {
+      placeHolder: "Pick entity",
+      ignoreFocusOut: true,
+    });
+
+    if (!entityMeta) {
+      return;
+    }
+
+    config.entityName = entityMeta.name;
+
     await config.save();
 
     await vscode.window.showInformationMessage(

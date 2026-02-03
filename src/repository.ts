@@ -1,18 +1,60 @@
 import * as vscode from "vscode";
 import { Config } from "./config";
 import {
+  Entity,
   fetchEntity,
   readEntityServices,
+  searchEntityMeta,
   showEntityMetaPick,
   updateEntity,
   writeEntityServices,
 } from "./thingworx";
 
-export class Repository {
+export class Repository implements vscode.Disposable {
+  private sourceControl: vscode.SourceControl;
+  private workingTreeGroup: vscode.SourceControlResourceGroup;
+
+  private _entity!: Entity;
+  get entity(): Entity {
+    return this._entity;
+  }
+
   constructor(
     private rootUri: vscode.Uri,
     private config: Config,
-  ) {}
+    entity: Entity,
+  ) {
+    this.sourceControl = vscode.scm.createSourceControl(
+      "twls",
+      "TWLS",
+      rootUri,
+    );
+    this.workingTreeGroup = this.sourceControl.createResourceGroup(
+      "workingTree",
+      "Changes",
+    );
+
+    this.setEntity(entity);
+  }
+
+  dispose(): void {
+    this.sourceControl.dispose();
+  }
+
+  static async init(
+    rootUri: vscode.Uri,
+    config: Config,
+  ): Promise<Repository | undefined> {
+    const entityMetas = await searchEntityMeta(config, config.entityName);
+    const entityMeta = entityMetas[0];
+
+    if (!entityMeta) {
+      return;
+    }
+
+    const entity = await fetchEntity(config, entityMeta);
+    return new Repository(rootUri, config, entity);
+  }
 
   async pull(): Promise<[string, number]> {
     const entityMeta = await showEntityMetaPick(this.config, {
@@ -48,5 +90,9 @@ export class Repository {
 
     await updateEntity(this.config, entity);
     return [entityMeta.name, localServices.length];
+  }
+
+  private setEntity(entity: Entity): void {
+    this._entity = entity;
   }
 }
