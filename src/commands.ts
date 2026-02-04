@@ -148,16 +148,13 @@ export class Commands implements vscode.Disposable {
   }
 
   async discard(localUri: vscode.Uri): Promise<void> {
-    let repo: Repository | undefined;
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(localUri);
 
-    if (this.model.repositoryCount === 1) {
-      repo = this.model.getFirstRepository();
-    } else {
-      repo = await this.model.showRepositoryPick({
-        placeHolder: "Pick repository",
-        ignoreFocusOut: true,
-      });
+    if (!workspaceFolder) {
+      throw new Error(`Expected ${localUri.fsPath} to be in a workspace.`);
     }
+
+    const repo = this.model.getRepository(workspaceFolder.uri);
 
     if (!repo) {
       return;
