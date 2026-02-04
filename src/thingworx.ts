@@ -46,6 +46,7 @@ export function getServiceExtensionPattern(): string {
 export interface Entity {
   meta: EntityMeta;
   getSource(): unknown;
+  getLastModifiedDate(): number;
   getServices(): Service[];
   updateService(name: string, source: string): void;
   setLastModifiedDate(value: number): void;

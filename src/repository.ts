@@ -9,7 +9,6 @@ import {
   readEntityServices,
   searchEntityMeta,
   Service,
-  showEntityMetaPick,
   updateEntity,
   writeEntityServices,
 } from "./thingworx";
@@ -18,6 +17,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private sourceControl: vscode.SourceControl;
   private workingTreeGroup: vscode.SourceControlResourceGroup;
   private fileSystemWatcher: vscode.FileSystemWatcher;
+  private timer?: NodeJS.Timeout;
 
   private _entity!: Entity;
   get entity(): Entity {
@@ -48,19 +48,13 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       new vscode.RelativePattern(rootUri, getServiceExtensionPattern()),
     );
     this.fileSystemWatcher.onDidCreate(() => {
-      this.updateWorkingTreeGroup().catch((error) => {
-        console.error(error);
-      });
+      this.tryUpdateWorkingTreeGroup();
     });
     this.fileSystemWatcher.onDidChange(() => {
-      this.updateWorkingTreeGroup().catch((error) => {
-        console.error(error);
-      });
+      this.tryUpdateWorkingTreeGroup();
     });
     this.fileSystemWatcher.onDidDelete(() => {
-      this.updateWorkingTreeGroup().catch((error) => {
-        console.error(error);
-      });
+      this.tryUpdateWorkingTreeGroup();
     });
 
     this.setEntity(entity);
@@ -105,45 +99,75 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return new Repository(rootUri, config, entity);
   }
 
-  async pull(): Promise<[string, number]> {
-    const entityMeta = await showEntityMetaPick(this.config, {
-      placeHolder: "Pick entity",
-      ignoreFocusOut: true,
-    });
-
-    if (!entityMeta) {
-      return ["", 0];
+  async pull(): Promise<number> {
+    if (this.workingTreeGroup.resourceStates.length > 0) {
+      throw new Error("Please push all the changes first before pull.");
     }
 
-    const entity = await fetchEntity(this.config, entityMeta);
-    const numServicesPulled = await writeEntityServices(this.rootUri, entity);
-    return [entityMeta.name, numServicesPulled];
+    const newEntity = await fetchEntity(this.config, this._entity.meta);
+
+    if (
+      newEntity.getLastModifiedDate() === this._entity.getLastModifiedDate()
+    ) {
+      return 0;
+    }
+
+    this.setEntity(newEntity);
+    const numServicesPulled = await writeEntityServices(
+      this.rootUri,
+      newEntity,
+    );
+    return numServicesPulled;
   }
 
-  async push(): Promise<[string, number]> {
-    const entityMeta = await showEntityMetaPick(this.config, {
-      placeHolder: "Pick entity",
-      ignoreFocusOut: true,
-    });
-
-    if (!entityMeta) {
-      return ["", 0];
+  async push(): Promise<number> {
+    if (this.workingTreeGroup.resourceStates.length === 0) {
+      throw new Error("No changes to push.");
     }
 
-    const entity = await fetchEntity(this.config, entityMeta);
-    const localServices = await readEntityServices(this.rootUri, entityMeta);
+    const newEntity = await fetchEntity(this.config, this._entity.meta);
+
+    if (newEntity.getLastModifiedDate() > this._entity.getLastModifiedDate()) {
+      throw new Error(
+        "ThingWorx changed since last pull. Please pull first to get the latest updates.",
+      );
+    }
+
+    const localServices = await readEntityServices(
+      this.rootUri,
+      this._entity.meta,
+    );
 
     for (const service of localServices) {
-      entity.updateService(service.name, service.source);
+      this._entity.updateService(service.name, service.source);
     }
 
-    await updateEntity(this.config, entity);
-    return [entityMeta.name, localServices.length];
+    this._entity.setLastModifiedDate(Date.now());
+
+    await Promise.all([
+      this.updateWorkingTreeGroup(),
+      updateEntity(this.config, this._entity),
+    ]);
+    return localServices.length;
   }
 
   private setEntity(entity: Entity): void {
     this._entity = entity;
     this._onEntityChange.fire(entity);
+  }
+
+  private tryUpdateWorkingTreeGroup(): void {
+    const DEBOUNCE_DELAY_MS = 300;
+
+    if (this.timer) {
+      clearTimeout(this.timer);
+    }
+
+    this.timer = setTimeout(() => {
+      this.updateWorkingTreeGroup().catch((error) => {
+        console.error(error);
+      });
+    }, DEBOUNCE_DELAY_MS);
   }
 
   private async updateWorkingTreeGroup(): Promise<void> {

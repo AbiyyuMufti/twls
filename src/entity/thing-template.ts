@@ -70,6 +70,10 @@ export class ThingTemplate implements Entity {
     return this.source;
   }
 
+  getLastModifiedDate(): number {
+    return this.source.lastModifiedDate;
+  }
+
   getServices(): Service[] {
     const services: Service[] = [];
 

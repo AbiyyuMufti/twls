@@ -85,10 +85,22 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    const [entityName, numServicesPulled] = await repo.pull();
-    await vscode.window.showInformationMessage(
-      `Pulled ${numServicesPulled} service(s) from ${entityName} successfully.`,
-    );
+    try {
+      const numServicesPulled = await repo.pull();
+      let message: string;
+
+      if (numServicesPulled === 0) {
+        message = "All services are up to date with ThingWorx";
+      } else {
+        message = `Pulled ${numServicesPulled} service(s) from ${repo.entity.meta.name} successfully.`;
+      }
+
+      await vscode.window.showInformationMessage(message);
+    } catch (error) {
+      if (error instanceof Error) {
+        vscode.window.showErrorMessage(error.message);
+      }
+    }
   }
 
   async push(): Promise<void> {
@@ -101,10 +113,16 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    const [entityName, numServicesPushed] = await repo.push();
-    await vscode.window.showInformationMessage(
-      `Pushed ${numServicesPushed} service(s) to ${entityName} successfully.`,
-    );
+    try {
+      const numServicesPushed = await repo.push();
+      await vscode.window.showInformationMessage(
+        `Pushed ${numServicesPushed} service(s) to ${repo.entity.meta.name} successfully.`,
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        vscode.window.showErrorMessage(error.message);
+      }
+    }
   }
 
   dispose(): void {
