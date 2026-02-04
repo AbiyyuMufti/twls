@@ -16,6 +16,8 @@ import {
   writeServices,
 } from "./thingworx";
 
+type State = "dirty" | "deleted" | "synced";
+
 export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private sourceControl: vscode.SourceControl;
   private workingTreeGroup: vscode.SourceControlResourceGroup;
@@ -99,7 +101,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     const entity = await fetchEntity(config, entityMeta);
     const repo = new Repository(rootUri, config, entity);
     await repo.updateWorkingTreeGroup();
-    await repo.writeUnchangedServices();
+    await repo.writeNonDirtyServices();
     return repo;
   }
 
@@ -159,7 +161,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     const entity = await fetchEntity(this.config, entityMeta);
     this.setEntity(entity);
     await this.updateWorkingTreeGroup();
-    await this.writeUnchangedServices();
+    await this.writeNonDirtyServices();
 
     this.config.entityName = entityMeta.name;
     await this.config.save();
@@ -176,13 +178,15 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     this.refreshStatusBar();
   }
 
-  private async writeUnchangedServices(): Promise<void> {
+  private async writeNonDirtyServices(): Promise<void> {
     const servicesToBeWritten = this._entity.getServices().filter((service) => {
       const localUri = this.getLocalUriFromService(service);
-      const isInWorkingTree = this.workingTreeGroup.resourceStates.find(
-        (state) => state.resourceUri.toString() === localUri.toString(),
+      const isDirty = this.workingTreeGroup.resourceStates.find(
+        (resourceState) =>
+          resourceState.resourceUri.toString() === localUri.toString() &&
+          resourceState.contextValue === "dirty",
       );
-      return !isInWorkingTree;
+      return !isDirty;
     });
 
     await writeServices(this.rootUri, this._entity.meta, servicesToBeWritten);
@@ -211,29 +215,30 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       );
 
     for (const [service, localUri] of entries) {
-      let isDirty: boolean;
-      let wasDeleted: boolean;
+      let state: State = "synced";
 
       try {
         await vscode.workspace.fs.stat(localUri);
         const document = await vscode.workspace.openTextDocument(localUri);
-        isDirty =
+        const isDirty =
           service.source.replace("\r", "") !==
           document.getText().replace("\r", "");
-        wasDeleted = false;
+
+        if (isDirty) {
+          state = "dirty";
+        }
       } catch (error) {
         if (error instanceof vscode.FileSystemError) {
-          isDirty = true;
-          wasDeleted = true;
+          state = "deleted";
         } else {
           throw error;
         }
       }
 
-      if (isDirty) {
+      if (state !== "synced") {
         const resourceState = this.toSourceControlResourceState(
           localUri,
-          wasDeleted,
+          state,
         );
         workingTreeResources.push(resourceState);
       }
@@ -245,7 +250,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   private toSourceControlResourceState(
     localUri: vscode.Uri,
-    deleted: boolean,
+    state: State,
   ): vscode.SourceControlResourceState {
     const cts = new vscode.CancellationTokenSource();
     const remoteUri = this.provideOriginalResource(localUri, cts.token);
@@ -255,34 +260,42 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     let command: vscode.Command;
     let decorations: vscode.SourceControlResourceDecorations;
 
-    if (deleted) {
-      title += " (Deleted)";
-      command = {
-        title,
-        command: "vscode.open",
-        arguments: [remoteUri, { preview: true }, title],
-      };
-      decorations = {
-        iconPath: new vscode.ThemeIcon("diff-removed"),
-        tooltip: title,
-      };
-    } else {
-      title += " (Modified)";
-      command = {
-        title,
-        command: "vscode.diff",
-        arguments: [remoteUri, localUri, title],
-      };
-      decorations = {
-        iconPath: new vscode.ThemeIcon("diff-single"),
-        tooltip: title,
-      };
+    switch (state) {
+      case "deleted":
+        title += " (Deleted)";
+        command = {
+          title,
+          command: "vscode.open",
+          arguments: [remoteUri, { preview: true }, title],
+        };
+        decorations = {
+          iconPath: new vscode.ThemeIcon("diff-removed"),
+          tooltip: title,
+        };
+        break;
+
+      case "dirty":
+        title += " (Modified)";
+        command = {
+          title,
+          command: "vscode.diff",
+          arguments: [remoteUri, localUri, title],
+        };
+        decorations = {
+          iconPath: new vscode.ThemeIcon("diff-single"),
+          tooltip: title,
+        };
+        break;
+
+      case "synced":
+        throw new Error(`Invalid state: ${state}`);
     }
 
     return {
       resourceUri: localUri,
       command,
       decorations,
+      contextValue: state,
     };
   }
 
