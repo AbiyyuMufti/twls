@@ -150,10 +150,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     this._entity.setLastModifiedDate(Date.now());
 
-    await Promise.all([
-      this.updateWorkingTreeGroup(),
-      updateEntity(this.config, this._entity),
-    ]);
+    await updateEntity(this.config, this._entity);
+    await this.updateWorkingTreeGroup();
+
     return localServices.length;
   }
 
