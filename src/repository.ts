@@ -12,6 +12,7 @@ import {
   updateEntity,
   writeEntityService,
   writeEntityServices,
+  writeServices,
 } from "./thingworx";
 
 export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
@@ -59,9 +60,6 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     });
 
     this.setEntity(entity);
-    this.updateWorkingTreeGroup().catch((error) => {
-      console.error(error);
-    });
   }
 
   provideOriginalResource(
@@ -97,7 +95,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     }
 
     const entity = await fetchEntity(config, entityMeta);
-    return new Repository(rootUri, config, entity);
+    const repo = new Repository(rootUri, config, entity);
+    await repo.updateWorkingTreeGroup();
+    await repo.writeUnchangedServices();
+    return repo;
   }
 
   async pull(): Promise<number> {
@@ -154,12 +155,24 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   async discard(localUri: vscode.Uri): Promise<void> {
     const service = this.getServiceFromLocalUri(localUri);
-    await writeEntityService(this.rootUri, this._entity, service);
+    await writeEntityService(this.rootUri, this._entity.meta, service);
   }
 
   private setEntity(entity: Entity): void {
     this._entity = entity;
     this._onEntityChange.fire(entity);
+  }
+
+  private async writeUnchangedServices(): Promise<void> {
+    const servicesToBeWritten = this._entity.getServices().filter((service) => {
+      const localUri = this.getLocalUriFromService(service);
+      const isInWorkingTree = this.workingTreeGroup.resourceStates.find(
+        (state) => state.resourceUri.toString() === localUri.toString(),
+      );
+      return !isInWorkingTree;
+    });
+
+    await writeServices(this.rootUri, this._entity.meta, servicesToBeWritten);
   }
 
   private tryUpdateWorkingTreeGroup(): void {

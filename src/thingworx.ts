@@ -142,14 +142,13 @@ export async function fetchEntity(
   return new entityMap[entityMeta.type](entityMeta, source);
 }
 
-export async function writeEntityServices(
+export async function writeServices(
   rootUri: vscode.Uri,
-  entity: Entity,
+  entityMeta: EntityMeta,
+  services: Service[],
 ): Promise<number> {
   const results = await Promise.allSettled(
-    entity
-      .getServices()
-      .map((service) => writeEntityService(rootUri, entity, service)),
+    services.map((service) => writeEntityService(rootUri, entityMeta, service)),
   );
   const numFulfilled = results.filter(
     (result) => result.status === "fulfilled",
@@ -157,15 +156,22 @@ export async function writeEntityServices(
   return numFulfilled;
 }
 
-export async function writeEntityService(
+export async function writeEntityServices(
   rootUri: vscode.Uri,
   entity: Entity,
+): Promise<number> {
+  return writeServices(rootUri, entity.meta, entity.getServices());
+}
+
+export async function writeEntityService(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
   service: Service,
 ): Promise<void> {
   const uri = vscode.Uri.joinPath(
     rootUri,
-    entity.meta.projectName,
-    entity.meta.name,
+    entityMeta.projectName,
+    entityMeta.name,
     service.name + service.extension,
   );
   const content = new TextEncoder().encode(service.source);
