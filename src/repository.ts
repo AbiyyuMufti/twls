@@ -4,6 +4,7 @@ import { Config } from "./config";
 import { REMOTE_SCHEME } from "./remote";
 import {
   Entity,
+  EntityMeta,
   fetchEntity,
   getServiceExtensionPattern,
   readEntityServices,
@@ -33,7 +34,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   constructor(
     private rootUri: vscode.Uri,
-    private config: Config,
+    public readonly config: Config,
     entity: Entity,
   ) {
     this.sourceControl = vscode.scm.createSourceControl(
@@ -153,6 +154,16 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return localServices.length;
   }
 
+  async switchEntity(entityMeta: EntityMeta): Promise<void> {
+    const entity = await fetchEntity(this.config, entityMeta);
+    this.setEntity(entity);
+    await this.updateWorkingTreeGroup();
+    await this.writeUnchangedServices();
+
+    this.config.entityName = entityMeta.name;
+    await this.config.save();
+  }
+
   async discard(localUri: vscode.Uri): Promise<void> {
     const service = this.getServiceFromLocalUri(localUri);
     await writeEntityService(this.rootUri, this._entity.meta, service);
@@ -161,6 +172,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private setEntity(entity: Entity): void {
     this._entity = entity;
     this._onEntityChange.fire(entity);
+    this.refreshStatusBar();
   }
 
   private async writeUnchangedServices(): Promise<void> {
@@ -271,6 +283,17 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       command,
       decorations,
     };
+  }
+
+  private refreshStatusBar(): void {
+    this.sourceControl.statusBarCommands = [
+      {
+        title: `$(arrow-swap) ${this._entity.meta.name}`,
+        command: "twls.switchEntity",
+        arguments: [this.rootUri],
+        tooltip: "Switch Entity",
+      },
+    ];
   }
 
   private getLocalUriFromService(service: Service): vscode.Uri {

@@ -81,15 +81,17 @@ export function showEntityMetaPick(
 
       try {
         const metas = await searchEntityMeta(config, searchExpression);
-        const items = metas.map(
-          (meta) =>
-            ({
-              ...meta,
-              label: meta.name,
-              description: meta.type,
-              detail: meta.projectName,
-            }) satisfies EntityMetaQuickPickItem,
-        );
+        const items = metas
+          .filter((meta) => meta.name !== config.entityName)
+          .map(
+            (meta) =>
+              ({
+                ...meta,
+                label: meta.name,
+                description: meta.type,
+                detail: meta.projectName,
+              }) satisfies EntityMetaQuickPickItem,
+          );
         quickPick.items = items;
       } catch (error) {
         if (error instanceof Error) {

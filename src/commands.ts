@@ -26,6 +26,14 @@ export class Commands implements vscode.Disposable {
         });
       }),
       vscode.commands.registerCommand(
+        "twls.switchEntity",
+        (rootUri: vscode.Uri) => {
+          this.switchEntity(rootUri).catch((error) => {
+            console.error(error);
+          });
+        },
+      ),
+      vscode.commands.registerCommand(
         "twls.discard",
         (resourceState: vscode.SourceControlResourceState) => {
           this.discard(resourceState.resourceUri).catch((error) => {
@@ -145,6 +153,28 @@ export class Commands implements vscode.Disposable {
         vscode.window.showErrorMessage(error.message);
       }
     }
+  }
+
+  async switchEntity(rootUri: vscode.Uri): Promise<void> {
+    const repo = this.model.getRepository(rootUri);
+
+    if (!repo) {
+      return;
+    }
+
+    const entityMeta = await showEntityMetaPick(repo.config, {
+      placeHolder: "Pick entity to switch to",
+      ignoreFocusOut: true,
+    });
+
+    if (!entityMeta) {
+      return;
+    }
+
+    await repo.switchEntity(entityMeta);
+    await vscode.window.showInformationMessage(
+      `Entity switched to ${entityMeta.name} successfully.`,
+    );
   }
 
   async discard(localUri: vscode.Uri): Promise<void> {
