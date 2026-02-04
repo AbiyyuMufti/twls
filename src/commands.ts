@@ -15,16 +15,22 @@ export class Commands implements vscode.Disposable {
           console.error(error);
         });
       }),
-      vscode.commands.registerCommand("twls.pull", () => {
-        this.pull().catch((error) => {
-          console.error(error);
-        });
-      }),
-      vscode.commands.registerCommand("twls.push", () => {
-        this.push().catch((error) => {
-          console.error(error);
-        });
-      }),
+      vscode.commands.registerCommand(
+        "twls.pull",
+        (sourceControl?: vscode.SourceControl) => {
+          this.pull(sourceControl?.rootUri).catch((error) => {
+            console.error(error);
+          });
+        },
+      ),
+      vscode.commands.registerCommand(
+        "twls.push",
+        (sourceControl?: vscode.SourceControl) => {
+          this.push(sourceControl?.rootUri).catch((error) => {
+            console.error(error);
+          });
+        },
+      ),
       vscode.commands.registerCommand(
         "twls.switchEntity",
         (rootUri: vscode.Uri) => {
@@ -93,11 +99,11 @@ export class Commands implements vscode.Disposable {
     );
   }
 
-  async pull(): Promise<void> {
+  async pull(rootUri?: vscode.Uri): Promise<void> {
     let repo: Repository | undefined;
 
-    if (this.model.repositoryCount === 1) {
-      repo = this.model.getFirstRepository();
+    if (rootUri) {
+      repo = this.model.getRepository(rootUri);
     } else {
       repo = await this.model.showRepositoryPick({
         placeHolder: "Pick repository",
@@ -127,11 +133,11 @@ export class Commands implements vscode.Disposable {
     }
   }
 
-  async push(): Promise<void> {
+  async push(rootUri?: vscode.Uri): Promise<void> {
     let repo: Repository | undefined;
 
-    if (this.model.repositoryCount === 1) {
-      repo = this.model.getFirstRepository();
+    if (rootUri) {
+      repo = this.model.getRepository(rootUri);
     } else {
       repo = await this.model.showRepositoryPick({
         placeHolder: "Pick repository",
