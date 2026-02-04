@@ -1,5 +1,6 @@
 import path from "node:path";
 import * as vscode from "vscode";
+import { Base } from "./base";
 import { Config } from "./config";
 import { Entity } from "./thingworx";
 
@@ -13,20 +14,28 @@ export class RemoteTextDocumentContentProvider
     return this._onDidChange.event;
   }
 
-  private entities = new Map<string, Entity>();
+  private entities: Base;
+
+  constructor(rootUri: vscode.Uri) {
+    this.entities = new Base(rootUri);
+  }
 
   dispose(): void {
     this._onDidChange.dispose();
-    this.entities.clear();
+    this.entities.clear().catch((error) => {
+      console.error(error);
+    });
   }
 
   updated(config: Config, newEntity: Entity): void {
     const entityUri = vscode.Uri.parse(
-      `${REMOTE_SCHEME}://${config.host}/${newEntity.meta.projectName}/${newEntity.meta.name}`,
+      `${REMOTE_SCHEME}://${config.host}/${newEntity.meta.projectName}/${newEntity.meta.name}?type=${newEntity.meta.type}&parentType=${newEntity.meta.parentType}`,
       true,
     );
     const key = entityUri.toString();
-    this.entities.set(key, newEntity);
+    void this.entities.set(key, newEntity).catch((error) => {
+      console.error(error);
+    });
 
     newEntity.getServices().forEach((service) => {
       const serviceUri = vscode.Uri.joinPath(
@@ -37,32 +46,33 @@ export class RemoteTextDocumentContentProvider
     });
   }
 
-  provideTextDocumentContent(
+  async provideTextDocumentContent(
     uri: vscode.Uri,
     token: vscode.CancellationToken,
-  ): vscode.ProviderResult<string> {
+  ): Promise<string | undefined> {
     if (token.isCancellationRequested) {
       return;
     }
 
-    const [, projectName, entityName, filename] = uri.path.split("/");
+    const [, projectName, entityName, serviceFilename] = uri.path.split("/");
 
-    if (!projectName || !entityName || !filename) {
+    if (!projectName || !entityName || !serviceFilename) {
       return `Malformed URI: ${uri.toString()}`;
     }
 
     const entityUri = uri.with({
       authority: uri.authority,
       path: `/${projectName}/${entityName}`,
+      query: uri.query,
     });
-    const entity = this.entities.get(entityUri.toString());
+    const entity = await this.entities.get(entityUri.toString());
 
     if (!entity) {
       return `Entity not found: ${entityName}`;
     }
 
-    const serviceExtension = path.extname(filename);
-    const serviceName = path.basename(filename, serviceExtension);
+    const serviceExtension = path.extname(serviceFilename);
+    const serviceName = path.basename(serviceFilename, serviceExtension);
     const service = entity
       .getServices()
       .find(

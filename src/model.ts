@@ -10,7 +10,10 @@ export class Model implements vscode.Disposable {
   private remote: RemoteTextDocumentContentProvider;
   private disposables: vscode.Disposable[] = [];
 
-  constructor(folders: readonly vscode.WorkspaceFolder[] | undefined) {
+  constructor(
+    context: vscode.ExtensionContext,
+    folders: readonly vscode.WorkspaceFolder[] | undefined,
+  ) {
     folders?.forEach((folder) => {
       this.addRepository(folder.uri).catch((error) => {
         console.error(error);
@@ -35,7 +38,9 @@ export class Model implements vscode.Disposable {
     });
     this.disposables.push(this.configWatcher);
 
-    this.remote = new RemoteTextDocumentContentProvider();
+    this.remote = new RemoteTextDocumentContentProvider(
+      context.globalStorageUri,
+    );
     this.disposables.push(
       vscode.workspace.registerTextDocumentContentProvider(
         REMOTE_SCHEME,

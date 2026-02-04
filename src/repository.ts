@@ -76,6 +76,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       scheme: REMOTE_SCHEME,
       authority: this.config.host,
       path: "/" + relativePath,
+      query: `type=${this._entity.meta.type}&parentType=${this._entity.meta.parentType}`,
     });
   }
 

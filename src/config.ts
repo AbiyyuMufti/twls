@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import z from "zod";
 
 export class Config {
-  private static FOLDER_NAME = ".twls";
+  public static FOLDER_NAME = ".twls";
   private static THINGWORX_FILE_NAME = "thingworx.json";
 
   private static thingworxSchema = z.object({

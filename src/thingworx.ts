@@ -19,7 +19,7 @@ const parentTypes = Object.values(entityParentTypes) as unknown as readonly [
   (typeof entityParentTypes)[keyof typeof entityParentTypes],
 ];
 
-const entityMetaSchema = z.object({
+export const entityMetaSchema = z.object({
   name: z.string(),
   projectName: z.string(),
   type: z.enum(entityTypes),
@@ -52,7 +52,7 @@ export interface Entity {
   setLastModifiedDate(value: number): void;
 }
 
-const entityMap = {
+export const entityMap = {
   ThingShape: ThingShape,
   ThingTemplate: ThingTemplate,
 } satisfies Record<
