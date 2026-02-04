@@ -55,9 +55,23 @@ export class Model implements vscode.Disposable {
     });
   }
 
+  get repositoryCount(): number {
+    return this.repositories.size;
+  }
+
   getRepository(rootUri: vscode.Uri): Repository | undefined {
     const key = rootUri.toString();
     return this.repositories.get(key);
+  }
+
+  getFirstRepository(): Repository {
+    if (this.repositories.size !== 1) {
+      throw new Error(
+        `Expected exactly one repository, but found ${this.repositories.size}.`,
+      );
+    }
+
+    return this.repositories.values().next().value!;
   }
 
   async showRepositoryPick(

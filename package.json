@@ -23,14 +23,30 @@
       {
         "category": "TWLS",
         "command": "twls.pull",
-        "title": "Pull"
+        "title": "Pull",
+        "icon": "$(repo-pull)"
       },
       {
         "category": "TWLS",
         "command": "twls.push",
-        "title": "Push"
+        "title": "Push",
+        "icon": "$(repo-push)"
       }
-    ]
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "twls.pull",
+          "group": "navigation",
+          "when": "scmProvider == twls"
+        },
+        {
+          "command": "twls.push",
+          "group": "navigation",
+          "when": "scmProvider == twls"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

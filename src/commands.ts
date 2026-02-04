@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { Config } from "./config";
 import { Model } from "./model";
+import { Repository } from "./repository";
 import { showEntityMetaPick } from "./thingworx";
 
 export class Commands implements vscode.Disposable {
@@ -76,10 +77,16 @@ export class Commands implements vscode.Disposable {
   }
 
   async pull(): Promise<void> {
-    const repo = await this.model.showRepositoryPick({
-      placeHolder: "Pick repository",
-      ignoreFocusOut: true,
-    });
+    let repo: Repository | undefined;
+
+    if (this.model.repositoryCount === 1) {
+      repo = this.model.getFirstRepository();
+    } else {
+      repo = await this.model.showRepositoryPick({
+        placeHolder: "Pick repository",
+        ignoreFocusOut: true,
+      });
+    }
 
     if (!repo) {
       return;
@@ -104,10 +111,16 @@ export class Commands implements vscode.Disposable {
   }
 
   async push(): Promise<void> {
-    const repo = await this.model.showRepositoryPick({
-      placeHolder: "Pick repository",
-      ignoreFocusOut: true,
-    });
+    let repo: Repository | undefined;
+
+    if (this.model.repositoryCount === 1) {
+      repo = this.model.getFirstRepository();
+    } else {
+      repo = await this.model.showRepositoryPick({
+        placeHolder: "Pick repository",
+        ignoreFocusOut: true,
+      });
+    }
 
     if (!repo) {
       return;
