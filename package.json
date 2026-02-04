@@ -31,6 +31,12 @@
         "command": "twls.push",
         "title": "Push",
         "icon": "$(repo-push)"
+      },
+      {
+        "category": "TWLS",
+        "command": "twls.discard",
+        "title": "Discard",
+        "icon": "$(discard)"
       }
     ],
     "menus": {
@@ -43,6 +49,13 @@
         {
           "command": "twls.push",
           "group": "navigation",
+          "when": "scmProvider == twls"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "twls.discard",
+          "group": "inline",
           "when": "scmProvider == twls"
         }
       ]

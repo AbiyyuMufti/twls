@@ -1,3 +1,4 @@
+import path from "node:path";
 import * as vscode from "vscode";
 import { Config } from "./config";
 import { Model } from "./model";
@@ -24,6 +25,14 @@ export class Commands implements vscode.Disposable {
           console.error(error);
         });
       }),
+      vscode.commands.registerCommand(
+        "twls.discard",
+        (resourceState: vscode.SourceControlResourceState) => {
+          this.discard(resourceState.resourceUri).catch((error) => {
+            console.error(error);
+          });
+        },
+      ),
     );
   }
 
@@ -135,6 +144,33 @@ export class Commands implements vscode.Disposable {
       if (error instanceof Error) {
         vscode.window.showErrorMessage(error.message);
       }
+    }
+  }
+
+  async discard(localUri: vscode.Uri): Promise<void> {
+    let repo: Repository | undefined;
+
+    if (this.model.repositoryCount === 1) {
+      repo = this.model.getFirstRepository();
+    } else {
+      repo = await this.model.showRepositoryPick({
+        placeHolder: "Pick repository",
+        ignoreFocusOut: true,
+      });
+    }
+
+    if (!repo) {
+      return;
+    }
+
+    const selected = await vscode.window.showWarningMessage(
+      `Are you sure you want to discard ${path.basename(localUri.fsPath)}? Any changes will be lost.`,
+      "Discard",
+      "Cancel",
+    );
+
+    if (selected === "Discard") {
+      await repo.discard(localUri);
     }
   }
 

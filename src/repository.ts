@@ -10,6 +10,7 @@ import {
   searchEntityMeta,
   Service,
   updateEntity,
+  writeEntityService,
   writeEntityServices,
 } from "./thingworx";
 
@@ -101,7 +102,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   async pull(): Promise<number> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
-      throw new Error("Please push all the changes first before pull.");
+      throw new Error("Please push/discard all the changes first before pull.");
     }
 
     const newEntity = await fetchEntity(this.config, this._entity.meta);
@@ -151,6 +152,11 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return localServices.length;
   }
 
+  async discard(localUri: vscode.Uri): Promise<void> {
+    const service = this.getServiceFromLocalUri(localUri);
+    await writeEntityService(this.rootUri, this._entity, service);
+  }
+
   private setEntity(entity: Entity): void {
     this._entity = entity;
     this._onEntityChange.fire(entity);
@@ -174,7 +180,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     const workingTreeResources: vscode.SourceControlResourceState[] = [];
     const entries = this._entity
       .getServices()
-      .map((service) => [service, this.getLocalUri(service)] as const);
+      .map(
+        (service) => [service, this.getLocalUriFromService(service)] as const,
+      );
 
     for (const [service, localUri] of entries) {
       let isDirty: boolean;
@@ -252,12 +260,27 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     };
   }
 
-  private getLocalUri(service: Service): vscode.Uri {
+  private getLocalUriFromService(service: Service): vscode.Uri {
     return vscode.Uri.joinPath(
       this.rootUri,
       this._entity.meta.projectName,
       this._entity.meta.name,
       service.name + service.extension,
     );
+  }
+
+  private getServiceFromLocalUri(localUri: vscode.Uri): Service {
+    const filename = path.basename(localUri.fsPath);
+    const service = this._entity
+      .getServices()
+      .find((service) => service.name + service.extension === filename);
+
+    if (!service) {
+      throw new Error(
+        `Service ${filename} does not exist on entity ${this._entity.meta.name}`,
+      );
+    }
+
+    return service;
   }
 }

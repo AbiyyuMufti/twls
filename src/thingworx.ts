@@ -157,7 +157,7 @@ export async function writeEntityServices(
   return numFulfilled;
 }
 
-async function writeEntityService(
+export async function writeEntityService(
   rootUri: vscode.Uri,
   entity: Entity,
   service: Service,
