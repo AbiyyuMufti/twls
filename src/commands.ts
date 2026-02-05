@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { Config } from "./config";
 import { Model } from "./model";
 import { Repository } from "./repository";
-import { showEntityMetaPick } from "./thingworx";
+import { EntityMeta, fetchProjectEntity, showEntityMetaPick, showProjectMetaPick } from "./thingworx";
 
 export class Commands implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
@@ -19,6 +19,14 @@ export class Commands implements vscode.Disposable {
         "twls.pull",
         (sourceControl?: vscode.SourceControl) => {
           this.pull(sourceControl?.rootUri).catch((error) => {
+            console.error(error);
+          });
+        },
+      ),
+      vscode.commands.registerCommand(
+        "twls.pullProject",
+        (sourceControl?: vscode.SourceControl) => {
+          this.pullProject(sourceControl?.rootUri).catch((error) => {
             console.error(error);
           });
         },
@@ -81,16 +89,30 @@ export class Commands implements vscode.Disposable {
 
     const config = new Config(folder.uri, baseUrl, appKey, "");
 
-    const entityMeta = await showEntityMetaPick(config, {
-      placeHolder: "Pick entity",
+    const projectMeta = await showProjectMetaPick(config, {
+      placeHolder: "Pick project",
       ignoreFocusOut: true,
     });
 
-    if (!entityMeta) {
+    if (!projectMeta) {
       return;
     }
 
-    config.entityName = entityMeta.name;
+    const entities = await fetchProjectEntity(config, projectMeta);
+
+    let entityMeta: EntityMeta | undefined;
+    if (entities.length <= 0) {
+      entityMeta = await showEntityMetaPick(config, {
+        placeHolder: "Pick entity",
+        ignoreFocusOut: true
+      });
+
+      if (!entityMeta) {
+        return;
+      }
+    }
+
+    config.entityName = entities[0]?.meta.name || entityMeta?.name || "";
 
     await config.save();
 
@@ -123,6 +145,49 @@ export class Commands implements vscode.Disposable {
         message = "All services are up to date with ThingWorx";
       } else {
         message = `Pulled ${numServicesPulled} service(s) from ${repo.entity.meta.name} successfully.`;
+      }
+
+      await vscode.window.showInformationMessage(message);
+    } catch (error) {
+      if (error instanceof Error) {
+        vscode.window.showErrorMessage(error.message);
+      }
+    }
+  }
+
+  async pullProject(rootUri?: vscode.Uri): Promise<void> {
+    let repo: Repository | undefined;
+
+    if (rootUri) {
+      repo = this.model.getRepository(rootUri);
+    } else {
+      repo = await this.model.showRepositoryPick({
+        placeHolder: "Pick repository",
+        ignoreFocusOut: true,
+      });
+    }
+
+    if (!repo) {
+      return;
+    }
+
+    const projectMeta = await showProjectMetaPick(repo.config, {
+      placeHolder: "Pick project",
+      ignoreFocusOut: true,
+    });
+
+    if (!projectMeta) {
+      return;
+    }
+
+    try {
+      const numServicesPulled = await repo.pullProject(projectMeta);
+      let message: string;
+
+      if (numServicesPulled === 0) {
+        message = `All services from entities of ${projectMeta.name} are up to date with ThingWorx`;
+      } else {
+        message = `Pulled ${numServicesPulled} service(s) from entities of ${projectMeta.name} successfully.`;
       }
 
       await vscode.window.showInformationMessage(message);

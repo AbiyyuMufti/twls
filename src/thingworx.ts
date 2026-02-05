@@ -28,6 +28,27 @@ export const entityMetaSchema = z.object({
 
 export type EntityMeta = z.infer<typeof entityMetaSchema>;
 
+const projectParentTypes = {
+  Project: "Projects"
+} as const;
+
+const projectTypes = Object.keys(projectParentTypes) as unknown as readonly [
+  keyof typeof projectParentTypes,
+];
+
+const projParentTypes = Object.values(projectParentTypes) as unknown as readonly [
+  (typeof projectParentTypes)[keyof typeof projectParentTypes],
+];
+
+export const projectMetaSchema = z.object({
+  name: z.string(),
+  projectName: z.string(),
+  type: z.enum(projectTypes),
+  parentType: z.enum(projParentTypes),
+});
+
+export type ProjectMeta = z.infer<typeof projectMetaSchema>;
+
 const serviceSchema = z.object({
   name: z.string(),
   source: z.string(),
@@ -132,6 +153,78 @@ export function showEntityMetaPick(
   });
 }
 
+export function showProjectMetaPick(
+  config: Config,
+  options: Pick<vscode.QuickPickOptions, "placeHolder" | "ignoreFocusOut">,
+): Promise<ProjectMeta | undefined> {
+  const DEBOUNCE_DELAY_MS = 300;
+
+  type ProjectMetaQuickPickItem = ProjectMeta & {
+    label: string;
+    description: string;
+    detail: string;
+  };
+
+  return new Promise((resolve, reject) => {
+    const quickPick = vscode.window.createQuickPick<ProjectMetaQuickPickItem>();
+    let timer: NodeJS.Timeout | undefined;
+
+    async function search(searchExpression: string): Promise<void> {
+      quickPick.busy = true;
+
+      try {
+        const metas = await searchProjectMeta(config, searchExpression);
+        const items = metas
+          .filter((meta) => meta.name !== config.entityName)
+          .map(
+            (meta) =>
+              ({
+                ...meta,
+                label: meta.name,
+                description: meta.type,
+                detail: meta.projectName,
+              }) satisfies ProjectMetaQuickPickItem,
+          );
+        quickPick.items = items;
+      } catch (error) {
+        if (error instanceof Error) {
+          reject(error);
+        }
+      } finally {
+        quickPick.busy = false;
+      }
+    }
+
+    if (options.placeHolder) {
+      quickPick.placeholder = options.placeHolder;
+    }
+
+    if (options.ignoreFocusOut) {
+      quickPick.ignoreFocusOut = options.ignoreFocusOut;
+    }
+
+    quickPick.onDidChangeValue((e) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void search(e + "*");
+      }, DEBOUNCE_DELAY_MS);
+    });
+
+    quickPick.onDidAccept(() => {
+      resolve(quickPick.selectedItems[0]);
+      quickPick.hide();
+    });
+
+    quickPick.onDidHide(() => {
+      resolve(undefined);
+      quickPick.dispose();
+    });
+
+    void search("*");
+    quickPick.show();
+  });
+}
+
 export async function fetchEntity(
   config: Config,
   entityMeta: EntityMeta,
@@ -142,6 +235,16 @@ export async function fetchEntity(
   });
 
   return new entityMap[entityMeta.type](entityMeta, source);
+}
+
+export async function fetchProjectEntity(
+  config: Config,
+  projectMeta: ProjectMeta,
+): Promise<Entity[]> {
+  const entityMeta = await searchEntityMeta(config, "*", projectMeta);
+  const entities = entityMeta.map((entity) => (fetchEntity(config, entity)));
+
+  return Promise.all(entities);
 }
 
 export async function writeServices(
@@ -230,6 +333,7 @@ export async function updateEntity(
 export async function searchEntityMeta(
   config: Config,
   searchExpression: string,
+  projectMeta?: ProjectMeta
 ): Promise<EntityMeta[]> {
   const MAX_ITEMS = 200;
   const MAX_SEARCH_ITEMS = 100_000;
@@ -255,12 +359,52 @@ export async function searchEntityMeta(
         items: entityMetaSchema.shape.type.options,
       },
       withPermissions: false,
+      projectName: projectMeta?.name,
     },
   });
 
   const parsed = z
     .object({
       rows: entityMetaSchema.array(),
+    })
+    .parse(result);
+  return parsed.rows;
+}
+
+export async function searchProjectMeta(
+  config: Config,
+  searchExpression: string,
+): Promise<ProjectMeta[]> {
+  const MAX_ITEMS = 200;
+  const MAX_SEARCH_ITEMS = 100_000;
+
+  const result = await thingworxFetch(config, {
+    method: "POST",
+    endpoint: "/Thingworx/Resources/SearchFunctions/Services/SpotlightSearchV2",
+    body: {
+      aspects: {
+        isEditableExtensionObject: false,
+        isEditableSystemObject: false,
+        isExtension: false,
+        isSystemObject: false,
+      },
+      isAscending: true,
+      maxItems: MAX_ITEMS,
+      maxSearchItems: MAX_SEARCH_ITEMS,
+      searchDescriptions: false,
+      searchExpression: searchExpression,
+      sortBy: "name",
+      tags: [],
+      types: {
+        items: projectMetaSchema.shape.type.options,
+      },
+      withPermissions: false,
+    },
+  });
+
+  const parsed = z
+    .object({
+      rows: projectMetaSchema.array(),
     })
     .parse(result);
   return parsed.rows;

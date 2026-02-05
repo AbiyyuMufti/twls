@@ -28,6 +28,12 @@
       },
       {
         "category": "TWLS",
+        "command": "twls.pullProject",
+        "title": "Pull Project",
+        "icon": "$(repo-pull)"
+      },
+      {
+        "category": "TWLS",
         "command": "twls.push",
         "title": "Push",
         "icon": "$(repo-push)"

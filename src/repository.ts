@@ -6,7 +6,9 @@ import {
   Entity,
   EntityMeta,
   fetchEntity,
+  fetchProjectEntity,
   getServiceExtensionPattern,
+  ProjectMeta,
   readEntityServices,
   searchEntityMeta,
   Service,
@@ -123,6 +125,25 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       this.rootUri,
       newEntity,
     );
+    return numServicesPulled;
+  }
+
+  async pullProject(projectMeta: ProjectMeta): Promise<number> {
+    if (this.workingTreeGroup.resourceStates.length > 0) {
+      throw new Error("Please push/discard all the changes first before pull.");
+    }
+
+    const entities = await fetchProjectEntity(this.config, projectMeta);
+
+    // Use Promise.all to process all entities in parallel
+    const results = await Promise.all(
+      entities.map(async (entity) => {
+        return await writeEntityServices(this.rootUri, entity);
+      })
+    );
+
+    // Sum up all the results
+    const numServicesPulled = results.reduce((sum, count) => sum + count, 0);
     return numServicesPulled;
   }
 
