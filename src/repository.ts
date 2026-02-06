@@ -47,6 +47,14 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       "TWLS",
       rootUri,
     );
+    this.sourceControl.inputBox.placeholder =
+      "Optional comment (Ctrl+Enter to push)";
+    this.sourceControl.inputBox.value = "";
+    this.sourceControl.acceptInputCommand = {
+      command: "twls.push",
+      title: "Push",
+    };
+
     this.workingTreeGroup = this.sourceControl.createResourceGroup(
       "workingTree",
       "Changes",
@@ -143,7 +151,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     const results = await Promise.all(
       (entities || []).map(async (entity) => {
         return await writeEntityServices(this.rootUri, entity);
-      })
+      }),
     );
 
     // Sum up all the results
@@ -175,8 +183,14 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     this._entity.setLastModifiedDate(Date.now());
 
-    await updateEntity(this.config, this._entity);
+    await updateEntity(
+      this.config,
+      this._entity,
+      this.sourceControl.inputBox.value,
+    );
     await this.updateWorkingTreeGroup();
+
+    this.sourceControl.inputBox.value = "";
 
     return localServices.length;
   }
@@ -216,22 +230,25 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     await writeServices(this.rootUri, this._entity.meta, servicesToBeWritten);
   }
 
-  private async writeProjectNonDirtyServices(entities?: Entity[]): Promise<void> {
-    const servicesToBeWritten: Array<{ entity: Entity, services: Service[] }> | undefined =
-      entities?.map((entity) => {
-        return {
-          entity,
-          services: entity.getServices().filter((service) => {
-            const localUri = this.getLocalUriFromService(service);
-            const isDirty = this.workingTreeGroup.resourceStates.find(
-              (resourceState) =>
-                resourceState.resourceUri.toString() === localUri.toString() &&
-                resourceState.contextValue === "dirty",
-            );
-            return !isDirty;
-          })
-        };
-      });
+  private async writeProjectNonDirtyServices(
+    entities?: Entity[],
+  ): Promise<void> {
+    const servicesToBeWritten:
+      | Array<{ entity: Entity; services: Service[] }>
+      | undefined = entities?.map((entity) => {
+      return {
+        entity,
+        services: entity.getServices().filter((service) => {
+          const localUri = this.getLocalUriFromService(service);
+          const isDirty = this.workingTreeGroup.resourceStates.find(
+            (resourceState) =>
+              resourceState.resourceUri.toString() === localUri.toString() &&
+              resourceState.contextValue === "dirty",
+          );
+          return !isDirty;
+        }),
+      };
+    });
 
     if (servicesToBeWritten?.length) {
       await Promise.all(
@@ -239,9 +256,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
           await writeServices(
             this.rootUri,
             entityServicesPair.entity.meta,
-            entityServicesPair.services
+            entityServicesPair.services,
           );
-        })
+        }),
       );
     }
   }

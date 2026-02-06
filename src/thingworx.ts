@@ -29,14 +29,16 @@ export const entityMetaSchema = z.object({
 export type EntityMeta = z.infer<typeof entityMetaSchema>;
 
 const projectParentTypes = {
-  Project: "Projects"
+  Project: "Projects",
 } as const;
 
 const projectTypes = Object.keys(projectParentTypes) as unknown as readonly [
   keyof typeof projectParentTypes,
 ];
 
-const projParentTypes = Object.values(projectParentTypes) as unknown as readonly [
+const projParentTypes = Object.values(
+  projectParentTypes,
+) as unknown as readonly [
   (typeof projectParentTypes)[keyof typeof projectParentTypes],
 ];
 
@@ -244,9 +246,9 @@ export async function fetchProjectEntity(
   if (!projectMeta) {
     return;
   }
-  
+
   const entityMeta = await searchEntityMeta(config, "*", projectMeta);
-  const entities = entityMeta.map((entity) => (fetchEntity(config, entity)));
+  const entities = entityMeta.map((entity) => fetchEntity(config, entity));
 
   return Promise.all(entities);
 }
@@ -326,10 +328,17 @@ async function readEntityService(
 export async function updateEntity(
   config: Config,
   entity: Entity,
+  comment: string,
 ): Promise<void> {
+  let endpoint = `/Thingworx/${entity.meta.parentType}/${entity.meta.name}`;
+
+  if (comment) {
+    endpoint += `?reason=${comment}`;
+  }
+
   await thingworxFetch(config, {
     method: "PUT",
-    endpoint: `/Thingworx/${entity.meta.parentType}/${entity.meta.name}`,
+    endpoint,
     body: entity.getSource(),
   });
 }
@@ -337,7 +346,7 @@ export async function updateEntity(
 export async function searchEntityMeta(
   config: Config,
   searchExpression: string,
-  projectMeta?: ProjectMeta
+  projectMeta?: ProjectMeta,
 ): Promise<EntityMeta[]> {
   const MAX_ITEMS = 200;
   const MAX_SEARCH_ITEMS = 100_000;
