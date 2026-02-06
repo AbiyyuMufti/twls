@@ -53,6 +53,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     this.sourceControl.acceptInputCommand = {
       command: "twls.push",
       title: "Push",
+      arguments: [this.sourceControl],
     };
 
     this.workingTreeGroup = this.sourceControl.createResourceGroup(

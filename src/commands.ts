@@ -3,7 +3,12 @@ import * as vscode from "vscode";
 import { Config } from "./config";
 import { Model } from "./model";
 import { Repository } from "./repository";
-import { EntityMeta, fetchProjectEntity, showEntityMetaPick, showProjectMetaPick } from "./thingworx";
+import {
+  EntityMeta,
+  fetchProjectEntity,
+  showEntityMetaPick,
+  showProjectMetaPick,
+} from "./thingworx";
 
 export class Commands implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
@@ -104,7 +109,7 @@ export class Commands implements vscode.Disposable {
     if (!entities || entities.length <= 0) {
       entityMeta = await showEntityMetaPick(config, {
         placeHolder: "Pick entity",
-        ignoreFocusOut: true
+        ignoreFocusOut: true,
       });
 
       if (!entityMeta) {
@@ -112,7 +117,8 @@ export class Commands implements vscode.Disposable {
       }
     }
 
-    config.entityName = (entities ? entities[0]?.meta?.name : entityMeta?.name) || "";
+    config.entityName =
+      (entities ? entities[0]?.meta?.name : entityMeta?.name) || "";
 
     await config.save();
 
