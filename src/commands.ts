@@ -101,7 +101,7 @@ export class Commands implements vscode.Disposable {
     const entities = await fetchProjectEntity(config, projectMeta);
 
     let entityMeta: EntityMeta | undefined;
-    if (entities.length <= 0) {
+    if (!entities || entities.length <= 0) {
       entityMeta = await showEntityMetaPick(config, {
         placeHolder: "Pick entity",
         ignoreFocusOut: true
@@ -112,7 +112,7 @@ export class Commands implements vscode.Disposable {
       }
     }
 
-    config.entityName = entities[0]?.meta.name || entityMeta?.name || "";
+    config.entityName = (entities ? entities[0]?.meta?.name : entityMeta?.name) || "";
 
     await config.save();
 

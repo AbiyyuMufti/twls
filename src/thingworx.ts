@@ -239,8 +239,12 @@ export async function fetchEntity(
 
 export async function fetchProjectEntity(
   config: Config,
-  projectMeta: ProjectMeta,
-): Promise<Entity[]> {
+  projectMeta?: ProjectMeta,
+): Promise<Entity[] | undefined> {
+  if (!projectMeta) {
+    return;
+  }
+  
   const entityMeta = await searchEntityMeta(config, "*", projectMeta);
   const entities = entityMeta.map((entity) => (fetchEntity(config, entity)));
 

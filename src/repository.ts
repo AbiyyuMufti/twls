@@ -11,6 +11,7 @@ import {
   ProjectMeta,
   readEntityServices,
   searchEntityMeta,
+  searchProjectMeta,
   Service,
   updateEntity,
   writeEntityService,
@@ -100,10 +101,14 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       return;
     }
 
+    const projectMeta = await searchProjectMeta(config, entityMeta.projectName);
+    const entities = await fetchProjectEntity(config, projectMeta[0]);
+
     const entity = await fetchEntity(config, entityMeta);
     const repo = new Repository(rootUri, config, entity);
+
     await repo.updateWorkingTreeGroup();
-    await repo.writeNonDirtyServices();
+    await repo.writeProjectNonDirtyServices(entities);
     return repo;
   }
 
@@ -135,9 +140,8 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     const entities = await fetchProjectEntity(this.config, projectMeta);
 
-    // Use Promise.all to process all entities in parallel
     const results = await Promise.all(
-      entities.map(async (entity) => {
+      (entities || []).map(async (entity) => {
         return await writeEntityServices(this.rootUri, entity);
       })
     );
@@ -210,6 +214,36 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     });
 
     await writeServices(this.rootUri, this._entity.meta, servicesToBeWritten);
+  }
+
+  private async writeProjectNonDirtyServices(entities?: Entity[]): Promise<void> {
+    const servicesToBeWritten: Array<{ entity: Entity, services: Service[] }> | undefined =
+      entities?.map((entity) => {
+        return {
+          entity,
+          services: entity.getServices().filter((service) => {
+            const localUri = this.getLocalUriFromService(service);
+            const isDirty = this.workingTreeGroup.resourceStates.find(
+              (resourceState) =>
+                resourceState.resourceUri.toString() === localUri.toString() &&
+                resourceState.contextValue === "dirty",
+            );
+            return !isDirty;
+          })
+        };
+      });
+
+    if (servicesToBeWritten?.length) {
+      await Promise.all(
+        servicesToBeWritten.map(async (entityServicesPair) => {
+          await writeServices(
+            this.rootUri,
+            entityServicesPair.entity.meta,
+            entityServicesPair.services
+          );
+        })
+      );
+    }
   }
 
   private tryUpdateWorkingTreeGroup(): void {
