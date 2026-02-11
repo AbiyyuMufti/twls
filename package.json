@@ -1,7 +1,7 @@
 {
   "name": "twls",
   "displayName": "twls",
-  "description": "",
+  "description": "Manage ThingWorx services from VS Code.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.108.1"
@@ -9,6 +9,9 @@
   "categories": [
     "Other"
   ],
+  "repository": {
+    "url": "http://192.168.7.101/team-project-3-reborn/twls"
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -79,7 +82,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "package": "vsce package --skip-license"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -88,6 +92,7 @@
     "@types/vscode": "^1.108.1",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
     "eslint": "^9.39.2",
     "prettier": "3.8.1",
     "typescript": "^5.9.3",

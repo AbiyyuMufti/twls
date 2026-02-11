@@ -1,6 +1,6 @@
-# twls README
+# ThingWorx Local Service (TWLS)
 
-This is the README for your extension "twls". After writing up a brief description, we recommend including the following sections.
+Manage ThingWorx services from VS Code.
 
 ## Features
 
