@@ -1,6 +1,7 @@
 {
   "name": "twls",
-  "displayName": "twls",
+  "displayName": "ThingWorx Local Service",
+  "publisher": "cadit-iot-centre",
   "description": "Manage ThingWorx services from VS Code.",
   "version": "0.0.1",
   "engines": {
@@ -10,7 +11,8 @@
     "Other"
   ],
   "repository": {
-    "url": "http://192.168.7.101/team-project-3-reborn/twls"
+    "type": "git",
+    "url": "http://192.168.7.101/team-project-3-reborn/twls.git"
   },
   "activationEvents": [
     "onStartupFinished"
