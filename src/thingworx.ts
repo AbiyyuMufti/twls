@@ -72,7 +72,6 @@ export interface Entity {
   getLastModifiedDate(): number;
   getServices(): Service[];
   updateService(name: string, source: string): void;
-  setLastModifiedDate(value: number): void;
 }
 
 export const entityMap = {

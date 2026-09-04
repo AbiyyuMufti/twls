@@ -79,8 +79,4 @@ export class ThingShape implements Entity {
 
     row.code = source;
   }
-
-  setLastModifiedDate(value: number): void {
-    this.source.lastModifiedDate = value;
-  }
 }

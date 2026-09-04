@@ -119,8 +119,4 @@ export class ThingTemplate implements Entity {
       scriptRow.code = source;
     }
   }
-
-  setLastModifiedDate(value: number): void {
-    this.source.lastModifiedDate = value;
-  }
 }
