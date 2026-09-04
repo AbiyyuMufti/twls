@@ -46,7 +46,7 @@ export class Commands implements vscode.Disposable {
       ),
       vscode.commands.registerCommand(
         "twls.switchEntity",
-        (rootUri: vscode.Uri) => {
+        (rootUri?: vscode.Uri) => {
           this.switchEntity(rootUri).catch((error) => {
             console.error(error);
           });
@@ -232,8 +232,17 @@ export class Commands implements vscode.Disposable {
     }
   }
 
-  async switchEntity(rootUri: vscode.Uri): Promise<void> {
-    const repo = this.model.getRepository(rootUri);
+  async switchEntity(rootUri?: vscode.Uri): Promise<void> {
+    let repo: Repository | undefined;
+
+    if (rootUri) {
+      repo = this.model.getRepository(rootUri);
+    } else {
+      repo = await this.model.showRepositoryPick({
+        placeHolder: "Pick repository",
+        ignoreFocusOut: true,
+      });
+    }
 
     if (!repo) {
       return;
