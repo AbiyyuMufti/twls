@@ -10,6 +10,11 @@ import {
   showProjectMetaPick,
 } from "./thingworx";
 
+/**
+ * Registers all `twls.*` VS Code commands and wires them to the shared
+ * {@link Model}. Commands invoked from source control pass a root URI / source
+ * control state so the right repository can be targeted directly.
+ */
 export class Commands implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
 
@@ -51,6 +56,7 @@ export class Commands implements vscode.Disposable {
     );
   }
 
+  /** Runs a command handler and turns failures into an error toast + log. */
   private run(fn: () => Promise<void>): void {
     Promise.resolve()
       .then(fn)
@@ -63,6 +69,11 @@ export class Commands implements vscode.Disposable {
       });
   }
 
+  /**
+   * Wizard that turns a workspace folder into a TWLS repository: asks for the
+   * ThingWorx base URL and app key, lets the user pick a project (and entity
+   * when the project has none), then writes the `.twls` config.
+   */
   async init(): Promise<void> {
     const folder = await vscode.window.showWorkspaceFolderPick({
       placeHolder: "Pick workspace",

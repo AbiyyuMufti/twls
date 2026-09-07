@@ -1,6 +1,12 @@
 import * as vscode from "vscode";
 import z from "zod";
 
+/**
+ * Connection settings for one workspace folder, stored as `.twls/thingworx.json`.
+ *
+ * A folder that contains this config file becomes a "repository": its services
+ * are pulled from, and pushed back to, a single ThingWorx server.
+ */
 export class Config {
   public static FOLDER_NAME = ".twls";
   private static THINGWORX_FILE_NAME = "thingworx.json";
@@ -22,10 +28,12 @@ export class Config {
     return `**/${this.FOLDER_NAME}/${this.THINGWORX_FILE_NAME}`;
   }
 
+  /** Returns the workspace folder that a config file was found in. */
   static getRootUri(thingworxUri: vscode.Uri): vscode.Uri {
     return vscode.Uri.joinPath(thingworxUri, "..", "..");
   }
 
+  /** Reads and validates the `.twls/thingworx.json` file of a workspace folder. */
   static async load(rootUri: vscode.Uri): Promise<Config> {
     const content = await vscode.workspace.fs.readFile(
       vscode.Uri.joinPath(
@@ -48,6 +56,7 @@ export class Config {
     return new URL(this.baseUrl).host;
   }
 
+  /** Validates and writes the config back to `.twls/thingworx.json`. */
   async save(): Promise<void> {
     const json = Config.thingworxSchema.parse({
       baseUrl: this.baseUrl,

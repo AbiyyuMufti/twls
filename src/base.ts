@@ -1,6 +1,14 @@
 import * as vscode from "vscode";
 import { Entity, entityMap, EntityMeta, entityMetaSchema } from "./thingworx";
 
+/**
+ * On-disk snapshot store for remote entities.
+ *
+ * Remote entity JSON is cached under `base/<host>/<project>/<entity>.json`
+ * (relative to the passed root URI) so virtual `twls-remote://` documents can
+ * keep serving content across sessions. Keys are URIs of the form
+ * `twls-remote://host/project/entity?type=...&parentType=...`.
+ */
 export class Base {
   private static FOLDER_NAME = "base";
 
@@ -10,6 +18,7 @@ export class Base {
     throw new Error("Method not implemented.");
   }
 
+  /** Reads the cached entity for the given key URI. */
   async get(key: string): Promise<Entity | undefined> {
     const [sourceUri, entityMeta] = this.parseKey(key);
     const content = await vscode.workspace.fs.readFile(sourceUri);
@@ -17,6 +26,7 @@ export class Base {
     return new entityMap[entityMeta.type](entityMeta, source);
   }
 
+  /** Writes the entity's source JSON to the cache location for the key URI. */
   async set(key: string, entity: Entity): Promise<this> {
     const [sourceUri] = this.parseKey(key);
     const content = new TextEncoder().encode(
@@ -43,6 +53,11 @@ export class Base {
     );
   }
 
+  /**
+   * Reverses a key URI into the cache file path plus the decoded entity meta.
+   * The host is encoded as a path segment, and `type`/`parentType` come from
+   * the URI query string.
+   */
   private parseKey(key: string): [vscode.Uri, EntityMeta] {
     const uri = vscode.Uri.parse(key, true);
     const [, projectName, entityName] = uri.path.split("/");

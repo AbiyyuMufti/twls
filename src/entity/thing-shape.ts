@@ -1,6 +1,10 @@
 import z from "zod";
 import { Entity, EntityMeta, Service } from "../thingworx";
 
+/**
+ * A ThingWorx thing shape. Its services are stored as `Script` configuration
+ * tables, so each service maps to a `.js` file.
+ */
 export class ThingShape implements Entity {
   private readonly schema = z.looseObject({
     name: z.string(),
@@ -40,6 +44,7 @@ export class ThingShape implements Entity {
     return this.source.lastModifiedDate;
   }
 
+  /** Returns one service per script implementation, read from the source. */
   getServices(): Service[] {
     const services: Service[] = [];
 
@@ -62,6 +67,7 @@ export class ThingShape implements Entity {
     return services;
   }
 
+  /** Replaces the code of an existing service in the in-memory source. */
   updateService(name: string, source: string): void {
     const implementation = this.source.serviceImplementations[name];
 

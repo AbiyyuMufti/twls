@@ -20,8 +20,15 @@ import {
   writeServices,
 } from "./thingworx";
 
+/** Per-service sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced";
 
+/**
+ * One TWLS "repository": a workspace folder working against a single active
+ * ThingWorx entity. Exposes that entity's services through VS Code source
+ * control — local edits show up as dirty/deleted changes (compared to the
+ * remote snapshot), and can be pushed to ThingWorx, pulled, or discarded.
+ */
 export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private sourceControl: vscode.SourceControl;
   private workingTreeGroup: vscode.SourceControlResourceGroup;
@@ -34,6 +41,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   }
 
   private _onEntityChange = new vscode.EventEmitter<Entity>();
+  /** Fires whenever the repository switches to a different entity definition. */
   get onEntityChange(): vscode.Event<Entity> {
     return this._onEntityChange.event;
   }
@@ -78,6 +86,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     this.setEntity(entity);
   }
 
+  /**
+   * Returns the virtual `twls-remote://` URI that represents the "original"
+   * (remote) version of a local service file for diffing.
+   */
   provideOriginalResource(
     uri: vscode.Uri,
     token: vscode.CancellationToken,
@@ -100,6 +112,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     this.fileSystemWatcher.dispose();
   }
 
+  /**
+   * Builds a repository for a folder: resolves the configured entity from its
+   * project, fetches everything, and writes the non-dirty services to disk so
+   * the folder starts in a consistent state. Returns `undefined` if the
+   * configured entity can't be found.
+   */
   static async init(
     rootUri: vscode.Uri,
     config: Config,
@@ -122,6 +140,11 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return repo;
   }
 
+  /**
+   * Pulls the active entity's latest services from ThingWorx and writes them to
+   * disk. No-op when the entity hasn't changed since the last pull. Returns how
+   * many services were written; throws if there are uncommitted local changes.
+   */
   async pull(): Promise<number> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
       throw new Error("Please push/discard all the changes first before pull.");
@@ -143,6 +166,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return numServicesPulled;
   }
 
+  /**
+   * Pulls every entity of a project and writes all their services to disk.
+   * Returns the total number of services written.
+   */
   async pullProject(projectMeta: ProjectMeta): Promise<number> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
       throw new Error("Please push/discard all the changes first before pull.");
@@ -161,6 +188,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return numServicesPulled;
   }
 
+  /**
+   * Reads the local service files, merges their source into the entity, and
+   * PUTs the whole definition to ThingWorx (using the source-control comment).
+   * Refreshes the working tree afterwards and returns the number of services
+   * pushed. Throws when there's nothing to push or ThingWorx is ahead.
+   */
   async push(): Promise<number> {
     if (this.workingTreeGroup.resourceStates.length === 0) {
       throw new Error("No changes to push.");
@@ -198,6 +231,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return localServices.length;
   }
 
+  /**
+   * Binds the repository to a different entity, writing that entity's
+   * non-dirty services to disk and remembering it in the config.
+   */
   async switchEntity(entityMeta: EntityMeta): Promise<void> {
     const entity = await fetchEntity(this.config, entityMeta);
     this.setEntity(entity);
@@ -208,6 +245,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     await this.config.save();
   }
 
+  /** Discards local edits to one service by rewriting the remote version to disk. */
   async discard(localUri: vscode.Uri): Promise<void> {
     const service = this.getServiceFromLocalUri(localUri);
     await writeEntityService(this.rootUri, this._entity.meta, service);

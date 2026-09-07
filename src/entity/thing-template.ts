@@ -1,6 +1,11 @@
 import z from "zod";
 import { Entity, EntityMeta, Service } from "../thingworx";
 
+/**
+ * A ThingWorx thing template. Services are looked up from the template's
+ * `thingShape` definition: each service is backed by either a `Script` table
+ * (`.js`) or a SQL `Query` table (`.sql`) — never both.
+ */
 export class ThingTemplate implements Entity {
   private readonly schema = z.looseObject({
     name: z.string(),
@@ -74,6 +79,7 @@ export class ThingTemplate implements Entity {
     return this.source.lastModifiedDate;
   }
 
+  /** Returns one service per implementation: `.sql` for query rows, `.js` for scripts. */
   getServices(): Service[] {
     const services: Service[] = [];
 
@@ -101,6 +107,7 @@ export class ThingTemplate implements Entity {
     return services;
   }
 
+  /** Replaces the query SQL or script code of an existing service. */
   updateService(name: string, source: string): void {
     const implementation = this.source.thingShape.serviceImplementations[name];
 

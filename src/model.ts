@@ -4,6 +4,13 @@ import { Config } from "./config";
 import { REMOTE_SCHEME, RemoteTextDocumentContentProvider } from "./remote";
 import { Repository } from "./repository";
 
+/**
+ * Owns the extension's live state: one {@link Repository} per workspace folder
+ * that contains a TWLS config file. Watches the workspace for config files
+ * being created, changed, or deleted and (re)builds repositories accordingly.
+ * Also registers the remote-document provider used as the "original" side of
+ * service diffs.
+ */
 export class Model implements vscode.Disposable {
   private repositories = new Map<string, Repository>();
   private configWatcher: vscode.FileSystemWatcher;
@@ -65,6 +72,10 @@ export class Model implements vscode.Disposable {
     return this.repositories.get(key);
   }
 
+  /**
+   * Lets the user pick one of the open repositories via a QuickPick and
+   * returns it (or `undefined` if nothing was chosen).
+   */
   async showRepositoryPick(
     options: Pick<vscode.QuickPickOptions, "placeHolder" | "ignoreFocusOut">,
   ): Promise<Repository | undefined> {

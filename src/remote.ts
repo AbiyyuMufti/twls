@@ -6,6 +6,12 @@ import { Entity } from "./thingworx";
 
 export const REMOTE_SCHEME = "twls-remote";
 
+/**
+ * Serves the "original" (remote ThingWorx) side of service-file diffs as
+ * virtual read-only documents under the `twls-remote://` scheme. When a local
+ * service file is compared, VS Code asks this provider for its remote
+ * counterpart instead of a filesystem copy.
+ */
 export class RemoteTextDocumentContentProvider
   implements vscode.TextDocumentContentProvider, vscode.Disposable
 {
@@ -27,6 +33,10 @@ export class RemoteTextDocumentContentProvider
     });
   }
 
+  /**
+   * Persists a fresh entity snapshot and notifies VS Code that every one of its
+   * service documents has changed so open diffs refresh.
+   */
   updated(config: Config, newEntity: Entity): void {
     const entityUri = vscode.Uri.parse(
       `${REMOTE_SCHEME}://${config.host}/${newEntity.meta.projectName}/${newEntity.meta.name}?type=${newEntity.meta.type}&parentType=${newEntity.meta.parentType}`,
@@ -46,6 +56,11 @@ export class RemoteTextDocumentContentProvider
     });
   }
 
+  /**
+   * Resolves the requested virtual service document by looking up its entity
+   * snapshot and returning the matching service's source code. Malformed URIs,
+   * unknown entities, and unknown services each get a readable error message.
+   */
   async provideTextDocumentContent(
     uri: vscode.Uri,
     token: vscode.CancellationToken,

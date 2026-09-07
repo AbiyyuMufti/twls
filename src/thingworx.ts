@@ -11,6 +11,14 @@ import {
   type MetaPickItem,
 } from "./pick-item";
 
+/**
+ * ThingWorx integration: schemas and helpers for identifying entities,
+ * searching/pulling/pushing entity definitions, and reading service code out of
+ * them. All communication goes through {@link thingworxFetch}, which speaks to
+ * the ThingWorx REST API with the configured application key.
+ */
+
+/** Maps each entity type to the REST collection ("parent type") it lives under. */
 const entityParentTypes = {
   ThingShape: "ThingShapes",
   ThingTemplate: "ThingTemplates",
@@ -24,6 +32,11 @@ const parentTypes = Object.values(entityParentTypes) as unknown as readonly [
   (typeof entityParentTypes)[keyof typeof entityParentTypes],
 ];
 
+/**
+ * Uniquely identifies a ThingWorx entity. `type` is the entity kind
+ * (`ThingShape`/`ThingTemplate`) and `parentType` is the REST collection it is
+ * stored under (`ThingShapes`/`ThingTemplates`).
+ */
 export const entityMetaSchema = z.object({
   name: z.string(),
   projectName: z.string(),
@@ -47,6 +60,7 @@ const projParentTypes = Object.values(
   (typeof projectParentTypes)[keyof typeof projectParentTypes],
 ];
 
+/** Identifies a ThingWorx project, the container that entities are grouped in. */
 export const projectMetaSchema = z.object({
   name: z.string(),
   projectName: z.string(),
@@ -56,6 +70,7 @@ export const projectMetaSchema = z.object({
 
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 
+/** A single callable service: its name, source code, and file extension. */
 const serviceSchema = z.object({
   name: z.string(),
   source: z.string(),
@@ -64,6 +79,7 @@ const serviceSchema = z.object({
 
 export type Service = z.infer<typeof serviceSchema>;
 
+/** Glob for watching all service files (`.js` and `.sql`) under a root. */
 export function getServiceExtensionPattern(): string {
   const s = serviceSchema.shape.extension.options
     .map((ext) => ext.slice(1))
@@ -71,6 +87,11 @@ export function getServiceExtensionPattern(): string {
   return `**/*.{${s}}`;
 }
 
+/**
+ * Uniform view over a fetched ThingWorx entity: its identity, the raw JSON it
+ * was parsed from, and its services. `getSource()` returns the raw JSON so it
+ * can be persisted or PUT back to the server.
+ */
 export interface Entity {
   meta: EntityMeta;
   getSource(): unknown;
@@ -79,6 +100,7 @@ export interface Entity {
   updateService(name: string, source: string): void;
 }
 
+/** Constructs the right entity class for each {@link EntityMeta.type}. */
 export const entityMap = {
   ThingShape: ThingShape,
   ThingTemplate: ThingTemplate,
@@ -87,6 +109,10 @@ export const entityMap = {
   new (meta: EntityMeta, source: unknown) => Entity
 >;
 
+/**
+ * Opens a QuickPick that live-searches entities and resolves to the picked
+ * {@link EntityMeta} (or `undefined` when the picker is dismissed).
+ */
 export function showEntityMetaPick(
   config: Config,
   options: Pick<vscode.QuickPickOptions, "placeHolder" | "ignoreFocusOut">,
@@ -98,6 +124,10 @@ export function showEntityMetaPick(
   );
 }
 
+/**
+ * Opens a QuickPick that live-searches projects and resolves to the picked
+ * {@link ProjectMeta} (or `undefined` when the picker is dismissed).
+ */
 export function showProjectMetaPick(
   config: Config,
   options: Pick<vscode.QuickPickOptions, "placeHolder" | "ignoreFocusOut">,
@@ -109,6 +139,11 @@ export function showProjectMetaPick(
   );
 }
 
+/**
+ * Shared QuickPick harness used by the entity/project pickers. It debounces
+ * the search box, discards stale results, and keeps the picker open when a
+ * search fails (surfacing the error as a toast) instead of rejecting.
+ */
 function showMetaQuickPick<TMeta>(
   performSearch: (searchExpression: string) => Promise<TMeta[]>,
   buildItem: (meta: TMeta) => MetaPickItem<TMeta> | undefined,
@@ -203,6 +238,7 @@ function showMetaQuickPick<TMeta>(
   });
 }
 
+/** Downloads and parses a single entity from ThingWorx. */
 export async function fetchEntity(
   config: Config,
   entityMeta: EntityMeta,
@@ -215,6 +251,7 @@ export async function fetchEntity(
   return new entityMap[entityMeta.type](entityMeta, source);
 }
 
+/** Downloads every entity in the given project (or nothing when omitted). */
 export async function fetchProjectEntity(
   config: Config,
   projectMeta?: ProjectMeta,
@@ -229,6 +266,10 @@ export async function fetchProjectEntity(
   return Promise.all(entities);
 }
 
+/**
+ * Writes the given services to disk under `<root>/<project>/<entity>/`.
+ * Returns how many of the writes succeeded.
+ */
 export async function writeServices(
   rootUri: vscode.Uri,
   entityMeta: EntityMeta,
@@ -243,6 +284,7 @@ export async function writeServices(
   return numFulfilled;
 }
 
+/** Writes all services of an entity to disk; returns the number written. */
 export async function writeEntityServices(
   rootUri: vscode.Uri,
   entity: Entity,
@@ -250,6 +292,7 @@ export async function writeEntityServices(
   return writeServices(rootUri, entity.meta, entity.getServices());
 }
 
+/** Writes a single service to disk under `<root>/<project>/<entity>/`. */
 export async function writeEntityService(
   rootUri: vscode.Uri,
   entityMeta: EntityMeta,
@@ -265,6 +308,10 @@ export async function writeEntityService(
   await vscode.workspace.fs.writeFile(uri, content);
 }
 
+/**
+ * Reads all service files (`.js`/`.sql`) that exist on disk for an entity,
+ * skipping files that don't match the service schema.
+ */
 export async function readEntityServices(
   rootUri: vscode.Uri,
   entityMeta: EntityMeta,
@@ -301,6 +348,7 @@ async function readEntityService(
   return service;
 }
 
+/** Pushes a whole entity definition back to ThingWorx with an optional comment. */
 export async function updateEntity(
   config: Config,
   entity: Entity,
@@ -319,6 +367,10 @@ export async function updateEntity(
   });
 }
 
+/**
+ * Searches ThingWorx (SpotlightSearchV2) for entities matching the expression,
+ * optionally constrained to a single project.
+ */
 export async function searchEntityMeta(
   config: Config,
   searchExpression: string,
@@ -360,6 +412,7 @@ export async function searchEntityMeta(
   return parsed.rows;
 }
 
+/** Searches ThingWorx (SpotlightSearchV2) for projects matching the expression. */
 export async function searchProjectMeta(
   config: Config,
   searchExpression: string,
@@ -399,6 +452,12 @@ export async function searchProjectMeta(
   return parsed.rows;
 }
 
+/**
+ * HTTP wrapper for the ThingWorx REST API. Attaches the application key,
+ * serializes request bodies as JSON, and maps network failures / non-OK
+ * responses to readable errors. Returns parsed JSON, plain text for HTML
+ * responses, or `undefined` for empty bodies.
+ */
 async function thingworxFetch(
   config: Config,
   options: {
