@@ -21,6 +21,10 @@ import {
 
 type State = "dirty" | "deleted" | "synced";
 
+function normalizeEol(source: string): string {
+  return source.replace(/\r\n?/g, "\n");
+}
+
 export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private sourceControl: vscode.SourceControl;
   private workingTreeGroup: vscode.SourceControlResourceGroup;
@@ -294,8 +298,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
         await vscode.workspace.fs.stat(localUri);
         const document = await vscode.workspace.openTextDocument(localUri);
         const isDirty =
-          service.source.replace("\r", "") !==
-          document.getText().replace("\r", "");
+          normalizeEol(service.source) !== normalizeEol(document.getText());
 
         if (isDirty) {
           state = "dirty";
