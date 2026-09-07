@@ -5,6 +5,11 @@ import z from "zod";
 import { Config } from "./config";
 import { ThingShape } from "./entity/thing-shape";
 import { ThingTemplate } from "./entity/thing-template";
+import {
+  buildEntityPickItem,
+  buildProjectPickItem,
+  type MetaPickItem,
+} from "./pick-item";
 
 const entityParentTypes = {
   ThingShape: "ThingShapes",
@@ -88,15 +93,7 @@ export function showEntityMetaPick(
 ): Promise<EntityMeta | undefined> {
   return showMetaQuickPick<EntityMeta>(
     (searchExpression) => searchEntityMeta(config, searchExpression),
-    (meta) =>
-      meta.name === config.entityName
-        ? undefined
-        : {
-            ...meta,
-            label: meta.name,
-            description: meta.type,
-            detail: meta.projectName,
-          },
+    (meta) => buildEntityPickItem(meta, config.entityName),
     options,
   );
 }
@@ -107,21 +104,10 @@ export function showProjectMetaPick(
 ): Promise<ProjectMeta | undefined> {
   return showMetaQuickPick<ProjectMeta>(
     (searchExpression) => searchProjectMeta(config, searchExpression),
-    (meta) => ({
-      ...meta,
-      label: meta.name,
-      description: meta.type,
-      detail: meta.projectName,
-    }),
+    (meta) => buildProjectPickItem(meta),
     options,
   );
 }
-
-type MetaPickItem<TMeta> = TMeta & {
-  label: string;
-  description: string;
-  detail: string;
-};
 
 function showMetaQuickPick<TMeta>(
   performSearch: (searchExpression: string) => Promise<TMeta[]>,

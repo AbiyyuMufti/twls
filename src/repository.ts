@@ -2,6 +2,7 @@ import path from "node:path";
 import * as vscode from "vscode";
 import { Config } from "./config";
 import { REMOTE_SCHEME } from "./remote";
+import { normalizeEol } from "./text";
 import {
   Entity,
   EntityMeta,
@@ -20,10 +21,6 @@ import {
 } from "./thingworx";
 
 type State = "dirty" | "deleted" | "synced";
-
-function normalizeEol(source: string): string {
-  return source.replace(/\r\n?/g, "\n");
-}
 
 export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private sourceControl: vscode.SourceControl;
