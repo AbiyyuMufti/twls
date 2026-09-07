@@ -16,51 +16,51 @@ export class Commands implements vscode.Disposable {
   constructor(private model: Model) {
     this.disposables.push(
       vscode.commands.registerCommand("twls.init", () => {
-        this.init().catch((error) => {
-          console.error(error);
-        });
+        this.run(() => this.init());
       }),
       vscode.commands.registerCommand(
         "twls.pull",
         (sourceControl?: vscode.SourceControl) => {
-          this.pull(sourceControl?.rootUri).catch((error) => {
-            console.error(error);
-          });
+          this.run(() => this.pull(sourceControl?.rootUri));
         },
       ),
       vscode.commands.registerCommand(
         "twls.pullProject",
         (sourceControl?: vscode.SourceControl) => {
-          this.pullProject(sourceControl?.rootUri).catch((error) => {
-            console.error(error);
-          });
+          this.run(() => this.pullProject(sourceControl?.rootUri));
         },
       ),
       vscode.commands.registerCommand(
         "twls.push",
         (sourceControl?: vscode.SourceControl) => {
-          this.push(sourceControl?.rootUri).catch((error) => {
-            console.error(error);
-          });
+          this.run(() => this.push(sourceControl?.rootUri));
         },
       ),
       vscode.commands.registerCommand(
         "twls.switchEntity",
         (rootUri?: vscode.Uri) => {
-          this.switchEntity(rootUri).catch((error) => {
-            console.error(error);
-          });
+          this.run(() => this.switchEntity(rootUri));
         },
       ),
       vscode.commands.registerCommand(
         "twls.discard",
         (resourceState: vscode.SourceControlResourceState) => {
-          this.discard(resourceState.resourceUri).catch((error) => {
-            console.error(error);
-          });
+          this.run(() => this.discard(resourceState.resourceUri));
         },
       ),
     );
+  }
+
+  private run(fn: () => Promise<void>): void {
+    Promise.resolve()
+      .then(fn)
+      .catch((error: unknown) => {
+        if (error instanceof Error) {
+          void vscode.window.showErrorMessage(error.message);
+        }
+
+        console.error(error);
+      });
   }
 
   async init(): Promise<void> {
@@ -143,22 +143,16 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    try {
-      const numServicesPulled = await repo.pull();
-      let message: string;
+    const numServicesPulled = await repo.pull();
+    let message: string;
 
-      if (numServicesPulled === 0) {
-        message = "All services are up to date with ThingWorx";
-      } else {
-        message = `Pulled ${numServicesPulled} service(s) from ${repo.entity.meta.name} successfully.`;
-      }
-
-      await vscode.window.showInformationMessage(message);
-    } catch (error) {
-      if (error instanceof Error) {
-        vscode.window.showErrorMessage(error.message);
-      }
+    if (numServicesPulled === 0) {
+      message = "All services are up to date with ThingWorx";
+    } else {
+      message = `Pulled ${numServicesPulled} service(s) from ${repo.entity.meta.name} successfully.`;
     }
+
+    await vscode.window.showInformationMessage(message);
   }
 
   async pullProject(rootUri?: vscode.Uri): Promise<void> {
@@ -186,22 +180,16 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    try {
-      const numServicesPulled = await repo.pullProject(projectMeta);
-      let message: string;
+    const numServicesPulled = await repo.pullProject(projectMeta);
+    let message: string;
 
-      if (numServicesPulled === 0) {
-        message = `All services from entities of ${projectMeta.name} are up to date with ThingWorx`;
-      } else {
-        message = `Pulled ${numServicesPulled} service(s) from entities of ${projectMeta.name} successfully.`;
-      }
-
-      await vscode.window.showInformationMessage(message);
-    } catch (error) {
-      if (error instanceof Error) {
-        vscode.window.showErrorMessage(error.message);
-      }
+    if (numServicesPulled === 0) {
+      message = `All services from entities of ${projectMeta.name} are up to date with ThingWorx`;
+    } else {
+      message = `Pulled ${numServicesPulled} service(s) from entities of ${projectMeta.name} successfully.`;
     }
+
+    await vscode.window.showInformationMessage(message);
   }
 
   async push(rootUri?: vscode.Uri): Promise<void> {
@@ -220,16 +208,10 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    try {
-      const numServicesPushed = await repo.push();
-      await vscode.window.showInformationMessage(
-        `Pushed ${numServicesPushed} service(s) to ${repo.entity.meta.name} successfully.`,
-      );
-    } catch (error) {
-      if (error instanceof Error) {
-        vscode.window.showErrorMessage(error.message);
-      }
-    }
+    const numServicesPushed = await repo.push();
+    await vscode.window.showInformationMessage(
+      `Pushed ${numServicesPushed} service(s) to ${repo.entity.meta.name} successfully.`,
+    );
   }
 
   async switchEntity(rootUri?: vscode.Uri): Promise<void> {
