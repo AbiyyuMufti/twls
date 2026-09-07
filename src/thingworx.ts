@@ -86,113 +86,123 @@ export function showEntityMetaPick(
   config: Config,
   options: Pick<vscode.QuickPickOptions, "placeHolder" | "ignoreFocusOut">,
 ): Promise<EntityMeta | undefined> {
-  const DEBOUNCE_DELAY_MS = 300;
-
-  type EntityMetaQuickPickItem = EntityMeta & {
-    label: string;
-    description: string;
-    detail: string;
-  };
-
-  return new Promise((resolve, reject) => {
-    const quickPick = vscode.window.createQuickPick<EntityMetaQuickPickItem>();
-    let timer: NodeJS.Timeout | undefined;
-
-    async function search(searchExpression: string): Promise<void> {
-      quickPick.busy = true;
-
-      try {
-        const metas = await searchEntityMeta(config, searchExpression);
-        const items = metas
-          .filter((meta) => meta.name !== config.entityName)
-          .map(
-            (meta) =>
-              ({
-                ...meta,
-                label: meta.name,
-                description: meta.type,
-                detail: meta.projectName,
-              }) satisfies EntityMetaQuickPickItem,
-          );
-        quickPick.items = items;
-      } catch (error) {
-        if (error instanceof Error) {
-          reject(error);
-        }
-      } finally {
-        quickPick.busy = false;
-      }
-    }
-
-    if (options.placeHolder) {
-      quickPick.placeholder = options.placeHolder;
-    }
-
-    if (options.ignoreFocusOut) {
-      quickPick.ignoreFocusOut = options.ignoreFocusOut;
-    }
-
-    quickPick.onDidChangeValue((e) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        void search(e + "*");
-      }, DEBOUNCE_DELAY_MS);
-    });
-
-    quickPick.onDidAccept(() => {
-      resolve(quickPick.selectedItems[0]);
-      quickPick.hide();
-    });
-
-    quickPick.onDidHide(() => {
-      resolve(undefined);
-      quickPick.dispose();
-    });
-
-    void search("*");
-    quickPick.show();
-  });
+  return showMetaQuickPick<EntityMeta>(
+    (searchExpression) => searchEntityMeta(config, searchExpression),
+    (meta) =>
+      meta.name === config.entityName
+        ? undefined
+        : {
+            ...meta,
+            label: meta.name,
+            description: meta.type,
+            detail: meta.projectName,
+          },
+    options,
+  );
 }
 
 export function showProjectMetaPick(
   config: Config,
   options: Pick<vscode.QuickPickOptions, "placeHolder" | "ignoreFocusOut">,
 ): Promise<ProjectMeta | undefined> {
+  return showMetaQuickPick<ProjectMeta>(
+    (searchExpression) => searchProjectMeta(config, searchExpression),
+    (meta) => ({
+      ...meta,
+      label: meta.name,
+      description: meta.type,
+      detail: meta.projectName,
+    }),
+    options,
+  );
+}
+
+type MetaPickItem<TMeta> = TMeta & {
+  label: string;
+  description: string;
+  detail: string;
+};
+
+function showMetaQuickPick<TMeta>(
+  performSearch: (searchExpression: string) => Promise<TMeta[]>,
+  buildItem: (meta: TMeta) => MetaPickItem<TMeta> | undefined,
+  options: Pick<vscode.QuickPickOptions, "placeHolder" | "ignoreFocusOut">,
+): Promise<TMeta | undefined> {
   const DEBOUNCE_DELAY_MS = 300;
 
-  type ProjectMetaQuickPickItem = ProjectMeta & {
-    label: string;
-    description: string;
-    detail: string;
-  };
+  return new Promise<TMeta | undefined>((resolve) => {
+    const quickPick = vscode.window.createQuickPick<MetaPickItem<TMeta>>();
+    let debounceTimer: NodeJS.Timeout | undefined;
+    let latestSearchId = 0;
+    let settled = false;
+    let lastErrorShown: string | undefined;
 
-  return new Promise((resolve, reject) => {
-    const quickPick = vscode.window.createQuickPick<ProjectMetaQuickPickItem>();
-    let timer: NodeJS.Timeout | undefined;
+    function settle(result: TMeta | undefined): void {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      quickPick.dispose();
+      resolve(result);
+    }
 
     async function search(searchExpression: string): Promise<void> {
+      const searchId = ++latestSearchId;
       quickPick.busy = true;
 
       try {
-        const metas = await searchProjectMeta(config, searchExpression);
-        const items = metas.map(
-          (meta) =>
-            ({
-              ...meta,
-              label: meta.name,
-              description: meta.type,
-              detail: meta.projectName,
-            }) satisfies ProjectMetaQuickPickItem,
-        );
-        quickPick.items = items;
+        const metas = await performSearch(searchExpression);
+        if (settled || searchId !== latestSearchId) {
+          return;
+        }
+        lastErrorShown = undefined;
+        quickPick.items = metas.flatMap((meta) => {
+          const item = buildItem(meta);
+          return item ? [item] : [];
+        });
       } catch (error) {
-        if (error instanceof Error) {
-          reject(error);
+        if (settled || searchId !== latestSearchId) {
+          return;
+        }
+        // A failed search keeps the picker open: clear results and surface the
+        // error as a transient toast (deduped per failure streak) instead of
+        // rejecting the pick promise silently.
+        quickPick.items = [];
+        const message =
+          error instanceof Error ? error.message : `Search failed: ${String(error)}`;
+        if (message !== lastErrorShown) {
+          lastErrorShown = message;
+          void vscode.window.showErrorMessage(message);
         }
       } finally {
-        quickPick.busy = false;
+        if (!settled && searchId === latestSearchId) {
+          quickPick.busy = false;
+        }
       }
     }
+
+    quickPick.onDidChangeValue((e) => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(() => {
+        void search(e + "*");
+      }, DEBOUNCE_DELAY_MS);
+    });
+
+    quickPick.onDidAccept(() => {
+      const selected = quickPick.selectedItems[0];
+      if (selected) {
+        settle(selected);
+      }
+    });
+
+    quickPick.onDidHide(() => {
+      settle(undefined);
+    });
 
     if (options.placeHolder) {
       quickPick.placeholder = options.placeHolder;
@@ -201,23 +211,6 @@ export function showProjectMetaPick(
     if (options.ignoreFocusOut) {
       quickPick.ignoreFocusOut = options.ignoreFocusOut;
     }
-
-    quickPick.onDidChangeValue((e) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        void search(e + "*");
-      }, DEBOUNCE_DELAY_MS);
-    });
-
-    quickPick.onDidAccept(() => {
-      resolve(quickPick.selectedItems[0]);
-      quickPick.hide();
-    });
-
-    quickPick.onDidHide(() => {
-      resolve(undefined);
-      quickPick.dispose();
-    });
 
     void search("*");
     quickPick.show();
