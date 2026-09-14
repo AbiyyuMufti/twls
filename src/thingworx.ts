@@ -10,6 +10,10 @@ import {
   buildProjectPickItem,
   type MetaPickItem,
 } from "./pick-item";
+import {
+  buildArtifactFolderRelativePath,
+  buildArtifactRelativePath,
+} from "./artifact-path";
 
 /**
  * ThingWorx integration: schemas and helpers for identifying entities,
@@ -193,7 +197,9 @@ function showMetaQuickPick<TMeta>(
         // rejecting the pick promise silently.
         quickPick.items = [];
         const message =
-          error instanceof Error ? error.message : `Search failed: ${String(error)}`;
+          error instanceof Error
+            ? error.message
+            : `Search failed: ${String(error)}`;
         if (message !== lastErrorShown) {
           lastErrorShown = message;
           void vscode.window.showErrorMessage(message);
@@ -300,9 +306,12 @@ export async function writeEntityService(
 ): Promise<void> {
   const uri = vscode.Uri.joinPath(
     rootUri,
-    entityMeta.projectName,
-    entityMeta.name,
-    service.name + service.extension,
+    ...buildArtifactRelativePath(
+      entityMeta,
+      "service",
+      service.name,
+      service.extension,
+    ),
   );
   const content = new TextEncoder().encode(service.source);
   await vscode.workspace.fs.writeFile(uri, content);
@@ -318,8 +327,7 @@ export async function readEntityServices(
 ): Promise<Service[]> {
   const folderUri = vscode.Uri.joinPath(
     rootUri,
-    entityMeta.projectName,
-    entityMeta.name,
+    ...buildArtifactFolderRelativePath(entityMeta, "service"),
   );
   const files = await vscode.workspace.fs.readDirectory(folderUri);
   const results = await Promise.allSettled(

@@ -69,9 +69,9 @@ export class RemoteTextDocumentContentProvider
       return;
     }
 
-    const [, projectName, entityName, serviceFilename] = uri.path.split("/");
+    const [, projectName, entityName, artifactFilename] = uri.path.split("/");
 
-    if (!projectName || !entityName || !serviceFilename) {
+    if (!projectName || !entityName || !artifactFilename) {
       return `Malformed URI: ${uri.toString()}`;
     }
 
@@ -86,8 +86,8 @@ export class RemoteTextDocumentContentProvider
       return `Entity not found: ${entityName}`;
     }
 
-    const serviceExtension = path.extname(serviceFilename);
-    const serviceName = path.basename(serviceFilename, serviceExtension);
+    const serviceExtension = path.extname(artifactFilename);
+    const serviceName = path.basename(artifactFilename, serviceExtension);
     const service = entity
       .getServices()
       .find(

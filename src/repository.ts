@@ -19,6 +19,7 @@ import {
   writeEntityServices,
   writeServices,
 } from "./thingworx";
+import { buildArtifactRelativePath } from "./artifact-path";
 
 /** Per-service sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced";
@@ -198,7 +199,6 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     if (this.workingTreeGroup.resourceStates.length === 0) {
       throw new Error("No changes to push.");
     }
-
     const newEntity = await fetchEntity(this.config, this._entity.meta);
 
     if (newEntity.getLastModifiedDate() > this._entity.getLastModifiedDate()) {
@@ -424,9 +424,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private getLocalUriFromService(service: Service): vscode.Uri {
     return vscode.Uri.joinPath(
       this.rootUri,
-      this._entity.meta.projectName,
-      this._entity.meta.name,
-      service.name + service.extension,
+      ...buildArtifactRelativePath(
+        this._entity.meta,
+        "service",
+        service.name,
+        service.extension,
+      ),
     );
   }
 

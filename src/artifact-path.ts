@@ -7,13 +7,15 @@ const artifactFolderName: Record<ArtifactKind, string> = {
   subscription: "subscriptions",
 };
 
-/**
- * Builds the relative path segments for a local artifact file:
- * `<project>/<entity>/<services|subscriptions>/<name><extension>`.
- *
- * Returned as segments (not a joined string) so callers can pass them
- * straight into `vscode.Uri.joinPath(rootUri, ...segments)`.
- */
+/** Relative path segments for the folder an artifact kind lives in: `<project>/<entity>/<services|subscriptions>`. */
+export function buildArtifactFolderRelativePath(
+  entityMeta: Pick<EntityMeta, "projectName" | "name">,
+  kind: ArtifactKind,
+): string[] {
+  return [entityMeta.projectName, entityMeta.name, artifactFolderName[kind]];
+}
+
+/** Relative path segments for a specific artifact file. */
 export function buildArtifactRelativePath(
   entityMeta: Pick<EntityMeta, "projectName" | "name">,
   kind: ArtifactKind,
@@ -21,9 +23,7 @@ export function buildArtifactRelativePath(
   extension: string,
 ): string[] {
   return [
-    entityMeta.projectName,
-    entityMeta.name,
-    artifactFolderName[kind],
+    ...buildArtifactFolderRelativePath(entityMeta, kind),
     artifactName + extension,
   ];
 }

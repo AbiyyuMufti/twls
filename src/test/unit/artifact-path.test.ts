@@ -1,5 +1,8 @@
 import * as assert from "node:assert";
-import { buildArtifactRelativePath } from "../../artifact-path";
+import {
+  buildArtifactRelativePath,
+  buildArtifactFolderRelativePath,
+} from "../../artifact-path";
 
 suite("artifact-path", () => {
   test("builds a service path under services/", () => {
@@ -31,6 +34,19 @@ suite("artifact-path", () => {
       "MeterReadingShape",
       "subscriptions",
       "SendEmailAndUpdateFrimTable.js",
+    ]);
+  });
+
+  test("builds the containing folder path for a kind", () => {
+    const segments = buildArtifactFolderRelativePath(
+      { projectName: "TWLS.Demo", name: "MeterReadingShape" },
+      "service",
+    );
+
+    assert.deepStrictEqual(segments, [
+      "TWLS.Demo",
+      "MeterReadingShape",
+      "services",
     ]);
   });
 });
