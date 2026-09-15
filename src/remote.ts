@@ -69,9 +69,10 @@ export class RemoteTextDocumentContentProvider
       return;
     }
 
-    const [, projectName, entityName, artifactFilename] = uri.path.split("/");
+    const [, projectName, entityName, artifactType, artifactFilename] =
+      uri.path.split("/");
 
-    if (!projectName || !entityName || !artifactFilename) {
+    if (!projectName || !entityName || !artifactType || !artifactFilename) {
       return `Malformed URI: ${uri.toString()}`;
     }
 
@@ -80,26 +81,48 @@ export class RemoteTextDocumentContentProvider
       path: `/${projectName}/${entityName}`,
       query: uri.query,
     });
+
     const entity = await this.entities.get(entityUri.toString());
 
     if (!entity) {
       return `Entity not found: ${entityName}`;
     }
 
-    const serviceExtension = path.extname(artifactFilename);
-    const serviceName = path.basename(artifactFilename, serviceExtension);
-    const service = entity
-      .getServices()
-      .find(
-        (service) =>
-          service.name === serviceName &&
-          service.extension === serviceExtension,
-      );
+    const artifactExtension = path.extname(artifactFilename);
+    const artifactName = path.basename(artifactFilename, artifactExtension);
 
-    if (!service) {
-      return `Service not found: ${serviceName}`;
+    if (artifactType === "services") {
+      const service = entity
+        .getServices()
+        .find(
+          (service) =>
+            service.name === artifactName &&
+            service.extension === artifactExtension,
+        );
+
+      if (!service) {
+        return `Service not found: ${artifactName}`;
+      }
+
+      return service.source;
     }
 
-    return service.source;
+    if (artifactType === "subscriptions") {
+      const subscription = entity
+        .getSubscriptions()
+        .find(
+          (subscription) =>
+            subscription.name === artifactName &&
+            subscription.extension === artifactExtension,
+        );
+
+      if (!subscription) {
+        return `Subscription not found: ${artifactName}`;
+      }
+
+      return subscription.source;
+    }
+
+    return `Unsupported artifact type: ${artifactType}`;
   }
 }
