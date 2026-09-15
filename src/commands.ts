@@ -154,13 +154,13 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    const numServicesPulled = await repo.pull();
+    const { numServices, numSubscriptions } = await repo.pull();
     let message: string;
 
-    if (numServicesPulled === 0) {
-      message = "All services are up to date with ThingWorx";
+    if (numServices === 0 && numSubscriptions === 0) {
+      message = "All services and subscriptions are up to date with ThingWorx";
     } else {
-      message = `Pulled ${numServicesPulled} service(s) from ${repo.entity.meta.name} successfully.`;
+      message = `Pulled ${numServices} service(s) and ${numSubscriptions} subscription(s) from ${repo.entity.meta.name} successfully.`;
     }
 
     await vscode.window.showInformationMessage(message);
@@ -191,13 +191,14 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    const numServicesPulled = await repo.pullProject(projectMeta);
+    const { numServices, numSubscriptions } =
+      await repo.pullProject(projectMeta);
     let message: string;
 
-    if (numServicesPulled === 0) {
+    if (numServices === 0 && numSubscriptions === 0) {
       message = `All services from entities of ${projectMeta.name} are up to date with ThingWorx`;
     } else {
-      message = `Pulled ${numServicesPulled} service(s) from entities of ${projectMeta.name} successfully.`;
+      message = `Pulled ${numServices} service(s) and ${numSubscriptions} subscription(s) from entities of ${projectMeta.name} successfully.`;
     }
 
     await vscode.window.showInformationMessage(message);
@@ -219,9 +220,9 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    const numServicesPushed = await repo.push();
+    const { numServices, numSubscriptions } = await repo.push();
     await vscode.window.showInformationMessage(
-      `Pushed ${numServicesPushed} service(s) to ${repo.entity.meta.name} successfully.`,
+      `Pushed ${numServices} service(s) and ${numSubscriptions} subscription(s) to ${repo.entity.meta.name} successfully.`,
     );
   }
 

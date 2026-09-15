@@ -1,5 +1,5 @@
 import z from "zod";
-import { Entity, EntityMeta, Service } from "../thingworx";
+import { Entity, EntityMeta, Service, Subscription } from "../thingworx";
 
 /**
  * A ThingWorx thing template. Services are looked up from the template's
@@ -59,6 +59,36 @@ export class ThingTemplate implements Entity {
             }),
         }),
       ),
+      subscriptions: z.record(
+        z.string(),
+        z.looseObject({
+          name: z.string(),
+          events: z.array(
+            z.looseObject({
+              sourceType: z.string(),
+              alertName: z.string(),
+              sourceProperty: z.string(),
+              eventName: z.string(),
+              alias: z.string(),
+              source: z.string(),
+              trigger: z.string(),
+            }),
+          ),
+          serviceImplementation: z.looseObject({
+            configurationTables: z.looseObject({
+              Script: z.looseObject({
+                rows: z
+                  .array(
+                    z.looseObject({
+                      code: z.string(),
+                    }),
+                  )
+                  .length(1),
+              }),
+            }),
+          }),
+        }),
+      ),
     }),
   });
 
@@ -107,6 +137,29 @@ export class ThingTemplate implements Entity {
     return services;
   }
 
+  getSubscriptions(): Subscription[] {
+    const subscriptions: Subscription[] = [];
+
+    for (const [subscriptionName, subscription] of Object.entries(
+      this.source.thingShape.subscriptions,
+    )) {
+      const row =
+        subscription.serviceImplementation.configurationTables.Script.rows[0];
+
+      if (!row) {
+        throw new Error("Invalid source");
+      }
+
+      subscriptions.push({
+        name: subscriptionName,
+        source: row.code,
+        extension: ".js",
+      });
+    }
+
+    return subscriptions;
+  }
+
   /** Replaces the query SQL or script code of an existing service. */
   updateService(name: string, source: string): void {
     const implementation = this.source.thingShape.serviceImplementations[name];
@@ -125,5 +178,24 @@ export class ThingTemplate implements Entity {
     } else if (scriptRow) {
       scriptRow.code = source;
     }
+  }
+
+  updateSubscription(name: string, source: string): void {
+    const implementation =
+      this.source.thingShape.subscriptions[name]?.serviceImplementation;
+
+    if (!implementation) {
+      throw new Error(
+        `Service ${name} does not exist on entity ${this.source.name}`,
+      );
+    }
+
+    const row = implementation.configurationTables.Script.rows[0];
+
+    if (!row) {
+      throw new Error("Invalid source");
+    }
+
+    row.code = source;
   }
 }

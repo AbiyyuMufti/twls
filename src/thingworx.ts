@@ -81,11 +81,25 @@ const serviceSchema = z.object({
   extension: z.enum([".js", ".sql"]),
 });
 
+const subscriptionSchema = z.object({
+  name: z.string(),
+  source: z.string(),
+  extension: z.enum([".js"]),
+});
+
 export type Service = z.infer<typeof serviceSchema>;
+export type Subscription = z.infer<typeof subscriptionSchema>;
 
 /** Glob for watching all service files (`.js` and `.sql`) under a root. */
 export function getServiceExtensionPattern(): string {
   const s = serviceSchema.shape.extension.options
+    .map((ext) => ext.slice(1))
+    .join(",");
+  return `**/*.{${s}}`;
+}
+
+export function getSubscriptionExtensionPattern(): string {
+  const s = subscriptionSchema.shape.extension.options
     .map((ext) => ext.slice(1))
     .join(",");
   return `**/*.{${s}}`;
@@ -101,7 +115,9 @@ export interface Entity {
   getSource(): unknown;
   getLastModifiedDate(): number;
   getServices(): Service[];
+  getSubscriptions(): Subscription[];
   updateService(name: string, source: string): void;
+  updateSubscription(name: string, source: string): void;
 }
 
 /** Constructs the right entity class for each {@link EntityMeta.type}. */
@@ -290,12 +306,36 @@ export async function writeServices(
   return numFulfilled;
 }
 
+export async function writeSubscriptions(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
+  subscriptions: Subscription[],
+): Promise<number> {
+  const results = await Promise.allSettled(
+    subscriptions.map((subscription) =>
+      writeEntitySubscription(rootUri, entityMeta, subscription),
+    ),
+  );
+  const numFulfilled = results.filter(
+    (result) => result.status === "fulfilled",
+  ).length;
+  return numFulfilled;
+}
+
 /** Writes all services of an entity to disk; returns the number written. */
 export async function writeEntityServices(
   rootUri: vscode.Uri,
   entity: Entity,
 ): Promise<number> {
   return writeServices(rootUri, entity.meta, entity.getServices());
+}
+
+/** Writes all subscriptions of an entity to disk; returns the number written. */
+export async function writeEntitySubscriptions(
+  rootUri: vscode.Uri,
+  entity: Entity,
+): Promise<number> {
+  return writeSubscriptions(rootUri, entity.meta, entity.getSubscriptions());
 }
 
 /** Writes a single service to disk under `<root>/<project>/<entity>/`. */
@@ -314,6 +354,24 @@ export async function writeEntityService(
     ),
   );
   const content = new TextEncoder().encode(service.source);
+  await vscode.workspace.fs.writeFile(uri, content);
+}
+
+export async function writeEntitySubscription(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
+  subscription: Subscription,
+): Promise<void> {
+  const uri = vscode.Uri.joinPath(
+    rootUri,
+    ...buildArtifactRelativePath(
+      entityMeta,
+      "subscription",
+      subscription.name,
+      subscription.extension,
+    ),
+  );
+  const content = new TextEncoder().encode(subscription.source);
   await vscode.workspace.fs.writeFile(uri, content);
 }
 
@@ -354,6 +412,56 @@ async function readEntityService(
     source: new TextDecoder().decode(content),
   });
   return service;
+}
+
+/**
+ * Reads all subscription files (`.js`) that exist on disk for an entity,
+ * skipping files that don't match the subscription schema. Returns an empty
+ * array if the entity has no subscriptions/ folder at all.
+ */
+export async function readEntitySubscriptions(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
+): Promise<Subscription[]> {
+  const folderUri = vscode.Uri.joinPath(
+    rootUri,
+    ...buildArtifactFolderRelativePath(entityMeta, "subscription"),
+  );
+
+  let files: [string, vscode.FileType][];
+
+  try {
+    files = await vscode.workspace.fs.readDirectory(folderUri);
+  } catch (error) {
+    if (error instanceof vscode.FileSystemError) {
+      return [];
+    }
+    throw error;
+  }
+
+  const results = await Promise.allSettled(
+    files
+      .filter(([, filetype]) => filetype === vscode.FileType.File)
+      .map(([filename]) => readEntitySubscription(folderUri, filename)),
+  );
+  return results
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
+}
+
+async function readEntitySubscription(
+  folderUri: vscode.Uri,
+  filename: string,
+): Promise<Subscription> {
+  const uri = vscode.Uri.joinPath(folderUri, filename);
+  const extension = path.extname(filename);
+  const name = path.basename(filename, extension);
+  const content = await vscode.workspace.fs.readFile(uri);
+  return subscriptionSchema.parse({
+    name,
+    extension,
+    source: new TextDecoder().decode(content),
+  });
 }
 
 /** Pushes a whole entity definition back to ThingWorx with an optional comment. */

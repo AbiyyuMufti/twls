@@ -11,18 +11,28 @@ import {
   getServiceExtensionPattern,
   ProjectMeta,
   readEntityServices,
+  readEntitySubscriptions,
   searchEntityMeta,
   searchProjectMeta,
   Service,
+  Subscription,
   updateEntity,
   writeEntityService,
   writeEntityServices,
+  writeEntitySubscription,
+  writeEntitySubscriptions,
   writeServices,
+  writeSubscriptions,
 } from "./thingworx";
-import { buildArtifactRelativePath } from "./artifact-path";
+import { ArtifactKind, buildArtifactRelativePath } from "./artifact-path";
 
 /** Per-service sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced";
+
+export type EntityDataCount = {
+  numServices: number;
+  numSubscriptions: number;
+};
 
 /**
  * One TWLS "repository": a workspace folder working against a single active
@@ -138,6 +148,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     await repo.updateWorkingTreeGroup();
     await repo.writeProjectNonDirtyServices(entities);
+    await repo.writeProjectNonDirtySubscriptions(entities);
     return repo;
   }
 
@@ -146,7 +157,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
    * disk. No-op when the entity hasn't changed since the last pull. Returns how
    * many services were written; throws if there are uncommitted local changes.
    */
-  async pull(): Promise<number> {
+  async pull(): Promise<EntityDataCount> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
       throw new Error("Please push/discard all the changes first before pull.");
     }
@@ -156,7 +167,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     if (
       newEntity.getLastModifiedDate() === this._entity.getLastModifiedDate()
     ) {
-      return 0;
+      return {
+        numServices: 0,
+        numSubscriptions: 0,
+      };
     }
 
     this.setEntity(newEntity);
@@ -164,29 +178,55 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       this.rootUri,
       newEntity,
     );
-    return numServicesPulled;
+
+    const numSubscriptionsPulled = await writeEntitySubscriptions(
+      this.rootUri,
+      newEntity,
+    );
+
+    return {
+      numServices: numServicesPulled,
+      numSubscriptions: numSubscriptionsPulled,
+    };
   }
 
   /**
    * Pulls every entity of a project and writes all their services to disk.
    * Returns the total number of services written.
    */
-  async pullProject(projectMeta: ProjectMeta): Promise<number> {
+  async pullProject(projectMeta: ProjectMeta): Promise<EntityDataCount> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
       throw new Error("Please push/discard all the changes first before pull.");
     }
 
     const entities = await fetchProjectEntity(this.config, projectMeta);
 
-    const results = await Promise.all(
+    const resultServices = await Promise.all(
       (entities || []).map(async (entity) => {
         return await writeEntityServices(this.rootUri, entity);
       }),
     );
 
+    const resultSubscriptions = await Promise.all(
+      (entities || []).map(async (entity) => {
+        return await writeEntitySubscriptions(this.rootUri, entity);
+      }),
+    );
+
     // Sum up all the results
-    const numServicesPulled = results.reduce((sum, count) => sum + count, 0);
-    return numServicesPulled;
+    const numServicesPulled = resultServices.reduce(
+      (sum, count) => sum + count,
+      0,
+    );
+
+    const numSubscriptionsPulled = resultSubscriptions.reduce(
+      (sum, count) => sum + count,
+      0,
+    );
+    return {
+      numServices: numServicesPulled,
+      numSubscriptions: numSubscriptionsPulled,
+    };
   }
 
   /**
@@ -195,7 +235,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
    * Refreshes the working tree afterwards and returns the number of services
    * pushed. Throws when there's nothing to push or ThingWorx is ahead.
    */
-  async push(): Promise<number> {
+  async push(): Promise<EntityDataCount> {
     if (this.workingTreeGroup.resourceStates.length === 0) {
       throw new Error("No changes to push.");
     }
@@ -211,9 +251,16 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       this.rootUri,
       this._entity.meta,
     );
-
     for (const service of localServices) {
       this._entity.updateService(service.name, service.source);
+    }
+
+    const localSubscriptions = await readEntitySubscriptions(
+      this.rootUri,
+      this._entity.meta,
+    );
+    for (const subscription of localSubscriptions) {
+      this._entity.updateSubscription(subscription.name, subscription.source);
     }
 
     await updateEntity(
@@ -228,7 +275,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     this.sourceControl.inputBox.value = "";
 
-    return localServices.length;
+    return {
+      numServices: localServices.length,
+      numSubscriptions: localSubscriptions.length,
+    };
   }
 
   /**
@@ -240,15 +290,47 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     this.setEntity(entity);
     await this.updateWorkingTreeGroup();
     await this.writeNonDirtyServices();
+    await this.writeNonDirtySubscriptions();
 
     this.config.entityName = entityMeta.name;
     await this.config.save();
   }
 
-  /** Discards local edits to one service by rewriting the remote version to disk. */
   async discard(localUri: vscode.Uri): Promise<void> {
-    const service = this.getServiceFromLocalUri(localUri);
-    await writeEntityService(this.rootUri, this._entity.meta, service);
+    const [kind, artifact] = this.getArtifactFromLocalUri(localUri);
+
+    if (kind === "service") {
+      await writeEntityService(this.rootUri, this._entity.meta, artifact);
+    } else {
+      await writeEntitySubscription(this.rootUri, this._entity.meta, artifact);
+    }
+  }
+
+  private getArtifactFromLocalUri(
+    localUri: vscode.Uri,
+  ): readonly ["service", Service] | readonly ["subscription", Subscription] {
+    const filename = path.basename(localUri.fsPath);
+
+    const service = this._entity
+      .getServices()
+      .find((service) => service.name + service.extension === filename);
+    if (service) {
+      return ["service", service] as const;
+    }
+
+    const subscription = this._entity
+      .getSubscriptions()
+      .find(
+        (subscription) =>
+          subscription.name + subscription.extension === filename,
+      );
+    if (subscription) {
+      return ["subscription", subscription] as const;
+    }
+
+    throw new Error(
+      `${filename} does not exist on entity ${this._entity.meta.name}`,
+    );
   }
 
   private setEntity(entity: Entity): void {
@@ -257,18 +339,41 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     this.refreshStatusBar();
   }
 
+  private isTrackedDirty(localUri: vscode.Uri): boolean {
+    return this.workingTreeGroup.resourceStates.some(
+      (resourceState) =>
+        resourceState.resourceUri.toString() === localUri.toString() &&
+        resourceState.contextValue === "dirty",
+    );
+  }
+
   private async writeNonDirtyServices(): Promise<void> {
-    const servicesToBeWritten = this._entity.getServices().filter((service) => {
-      const localUri = this.getLocalUriFromService(service);
-      const isDirty = this.workingTreeGroup.resourceStates.find(
-        (resourceState) =>
-          resourceState.resourceUri.toString() === localUri.toString() &&
-          resourceState.contextValue === "dirty",
+    const servicesToBeWritten = this._entity
+      .getServices()
+      .filter(
+        (service) =>
+          !this.isTrackedDirty(
+            this.getLocalUriFromArtifact("service", service),
+          ),
       );
-      return !isDirty;
-    });
 
     await writeServices(this.rootUri, this._entity.meta, servicesToBeWritten);
+  }
+
+  private async writeNonDirtySubscriptions(): Promise<void> {
+    const subscriptionsToBeWritten = this._entity
+      .getSubscriptions()
+      .filter(
+        (subscription) =>
+          !this.isTrackedDirty(
+            this.getLocalUriFromArtifact("subscription", subscription),
+          ),
+      );
+    await writeSubscriptions(
+      this.rootUri,
+      this._entity.meta,
+      subscriptionsToBeWritten,
+    );
   }
 
   private async writeProjectNonDirtyServices(
@@ -280,7 +385,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       return {
         entity,
         services: entity.getServices().filter((service) => {
-          const localUri = this.getLocalUriFromService(service);
+          const localUri = this.getLocalUriFromArtifact("service", service);
           const isDirty = this.workingTreeGroup.resourceStates.find(
             (resourceState) =>
               resourceState.resourceUri.toString() === localUri.toString() &&
@@ -304,6 +409,18 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     }
   }
 
+  private async writeProjectNonDirtySubscriptions(
+    entities?: Entity[],
+  ): Promise<void> {
+    if (!entities?.length) {
+      return;
+    }
+
+    await Promise.all(
+      entities.map((entity) => writeEntitySubscriptions(this.rootUri, entity)),
+    );
+  }
+
   private tryUpdateWorkingTreeGroup(): void {
     const DEBOUNCE_DELAY_MS = 300;
 
@@ -320,20 +437,35 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   private async updateWorkingTreeGroup(): Promise<void> {
     const workingTreeResources: vscode.SourceControlResourceState[] = [];
-    const entries = this._entity
-      .getServices()
-      .map(
-        (service) => [service, this.getLocalUriFromService(service)] as const,
-      );
+    const entries: Array<readonly [Service | Subscription, vscode.Uri]> = [
+      ...this._entity
+        .getServices()
+        .map(
+          (service) =>
+            [
+              service,
+              this.getLocalUriFromArtifact("service", service),
+            ] as const,
+        ),
+      ...this._entity
+        .getSubscriptions()
+        .map(
+          (subscription) =>
+            [
+              subscription,
+              this.getLocalUriFromArtifact("subscription", subscription),
+            ] as const,
+        ),
+    ];
 
-    for (const [service, localUri] of entries) {
+    for (const [artifact, localUri] of entries) {
       let state: State = "synced";
 
       try {
         await vscode.workspace.fs.stat(localUri);
         const document = await vscode.workspace.openTextDocument(localUri);
         const isDirty =
-          normalizeEol(service.source) !== normalizeEol(document.getText());
+          normalizeEol(artifact.source) !== normalizeEol(document.getText());
 
         if (isDirty) {
           state = "dirty";
@@ -347,11 +479,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       }
 
       if (state !== "synced") {
-        const resourceState = this.toSourceControlResourceState(
-          localUri,
-          state,
+        workingTreeResources.push(
+          this.toSourceControlResourceState(localUri, state),
         );
-        workingTreeResources.push(resourceState);
       }
     }
 
@@ -421,12 +551,15 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     ];
   }
 
-  private getLocalUriFromService(service: Service): vscode.Uri {
+  private getLocalUriFromArtifact(
+    kind: ArtifactKind,
+    service: Service,
+  ): vscode.Uri {
     return vscode.Uri.joinPath(
       this.rootUri,
       ...buildArtifactRelativePath(
         this._entity.meta,
-        "service",
+        kind,
         service.name,
         service.extension,
       ),
