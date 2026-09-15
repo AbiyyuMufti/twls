@@ -26,9 +26,10 @@ import {
 } from "./thingworx";
 import { ArtifactKind, buildArtifactRelativePath } from "./artifact-path";
 
-/** Per-service sync status shown in the source-control "Changes" group. */
+/** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced";
 
+/** Number of services and subscriptions affected by a repository operation. */
 export type EntityDataCount = {
   numServices: number;
   numSubscriptions: number;
@@ -36,9 +37,9 @@ export type EntityDataCount = {
 
 /**
  * One TWLS "repository": a workspace folder working against a single active
- * ThingWorx entity. Exposes that entity's services through VS Code source
- * control — local edits show up as dirty/deleted changes (compared to the
- * remote snapshot), and can be pushed to ThingWorx, pulled, or discarded.
+ * ThingWorx entity. Exposes that entity's services and subscriptions through
+ * VS Code source control — local edits show up as dirty/deleted changes
+ * compared to the remote snapshot, and can be pushed, pulled, or discarded.
  */
 export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private sourceControl: vscode.SourceControl;
@@ -47,11 +48,14 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private timer?: NodeJS.Timeout;
 
   private _entity!: Entity;
+
+  /** Returns the repository's currently active ThingWorx entity snapshot. */
   get entity(): Entity {
     return this._entity;
   }
 
   private _onEntityChange = new vscode.EventEmitter<Entity>();
+
   /** Fires whenever the repository switches to a different entity definition. */
   get onEntityChange(): vscode.Event<Entity> {
     return this._onEntityChange.event;
@@ -99,7 +103,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   /**
    * Returns the virtual `twls-remote://` URI that represents the "original"
-   * (remote) version of a local service file for diffing.
+   * remote version of a local service or subscription file for diffing.
    */
   provideOriginalResource(
     uri: vscode.Uri,
@@ -118,6 +122,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     });
   }
 
+  /** Releases the VS Code source-control and filesystem-watcher resources. */
   dispose(): void {
     this.sourceControl.dispose();
     this.fileSystemWatcher.dispose();
@@ -125,9 +130,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   /**
    * Builds a repository for a folder: resolves the configured entity from its
-   * project, fetches everything, and writes the non-dirty services to disk so
-   * the folder starts in a consistent state. Returns `undefined` if the
-   * configured entity can't be found.
+   * project, fetches the project entities, and writes their non-dirty services
+   * and subscriptions to disk so the folder starts in a consistent state.
+   * Returns `undefined` if the configured entity can't be found.
    */
   static async init(
     rootUri: vscode.Uri,
@@ -153,9 +158,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   }
 
   /**
-   * Pulls the active entity's latest services from ThingWorx and writes them to
-   * disk. No-op when the entity hasn't changed since the last pull. Returns how
-   * many services were written; throws if there are uncommitted local changes.
+   * Pulls the active entity's latest services and subscriptions from ThingWorx
+   * and writes them to disk. No-op when the entity hasn't changed since the last
+   * pull. Returns how many services and subscriptions were written; throws if
+   * there are uncommitted local changes.
    */
   async pull(): Promise<EntityDataCount> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
@@ -191,8 +197,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   }
 
   /**
-   * Pulls every entity of a project and writes all their services to disk.
-   * Returns the total number of services written.
+   * Pulls every entity of a project and writes all their services and
+   * subscriptions to disk. Returns the total number of services and
+   * subscriptions written.
    */
   async pullProject(projectMeta: ProjectMeta): Promise<EntityDataCount> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
@@ -230,10 +237,11 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   }
 
   /**
-   * Reads the local service files, merges their source into the entity, and
-   * PUTs the whole definition to ThingWorx (using the source-control comment).
-   * Refreshes the working tree afterwards and returns the number of services
-   * pushed. Throws when there's nothing to push or ThingWorx is ahead.
+   * Reads the local service and subscription files, merges their source into the
+   * entity, and PUTs the whole definition to ThingWorx using the source-control
+   * comment. Refreshes the working tree afterwards and returns the number of
+   * services and subscriptions pushed. Throws when there is nothing to push or
+   * ThingWorx is ahead.
    */
   async push(): Promise<EntityDataCount> {
     if (this.workingTreeGroup.resourceStates.length === 0) {
@@ -283,7 +291,8 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   /**
    * Binds the repository to a different entity, writing that entity's
-   * non-dirty services to disk and remembering it in the config.
+   * non-dirty services and subscriptions to disk and remembering it in the
+   * config.
    */
   async switchEntity(entityMeta: EntityMeta): Promise<void> {
     const entity = await fetchEntity(this.config, entityMeta);
@@ -296,6 +305,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     await this.config.save();
   }
 
+  /**
+   * Restores a local service or subscription file from the active entity's
+   * current remote snapshot.
+   */
   async discard(localUri: vscode.Uri): Promise<void> {
     const [kind, artifact] = this.getArtifactFromLocalUri(localUri);
 
@@ -412,13 +425,39 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private async writeProjectNonDirtySubscriptions(
     entities?: Entity[],
   ): Promise<void> {
-    if (!entities?.length) {
-      return;
-    }
+    const subscriptionsToBeWritten:
+      | Array<{ entity: Entity; subscriptions: Subscription[] }>
+      | undefined = entities?.map((entity) => {
+      return {
+        entity,
+        subscriptions: entity.getSubscriptions().filter((subscription) => {
+          const localUri = this.getLocalUriFromArtifact(
+            "subscription",
+            subscription,
+          );
 
-    await Promise.all(
-      entities.map((entity) => writeEntitySubscriptions(this.rootUri, entity)),
-    );
+          const isDirty = this.workingTreeGroup.resourceStates.find(
+            (resourceState) =>
+              resourceState.resourceUri.toString() === localUri.toString() &&
+              resourceState.contextValue === "dirty",
+          );
+
+          return !isDirty;
+        }),
+      };
+    });
+
+    if (subscriptionsToBeWritten?.length) {
+      await Promise.all(
+        subscriptionsToBeWritten.map(async (entitySubscriptionsPair) => {
+          await writeSubscriptions(
+            this.rootUri,
+            entitySubscriptionsPair.entity.meta,
+            entitySubscriptionsPair.subscriptions,
+          );
+        }),
+      );
+    }
   }
 
   private tryUpdateWorkingTreeGroup(): void {
@@ -553,31 +592,16 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   private getLocalUriFromArtifact(
     kind: ArtifactKind,
-    service: Service,
+    artifact: Service | Subscription,
   ): vscode.Uri {
     return vscode.Uri.joinPath(
       this.rootUri,
       ...buildArtifactRelativePath(
         this._entity.meta,
         kind,
-        service.name,
-        service.extension,
+        artifact.name,
+        artifact.extension,
       ),
     );
-  }
-
-  private getServiceFromLocalUri(localUri: vscode.Uri): Service {
-    const filename = path.basename(localUri.fsPath);
-    const service = this._entity
-      .getServices()
-      .find((service) => service.name + service.extension === filename);
-
-    if (!service) {
-      throw new Error(
-        `Service ${filename} does not exist on entity ${this._entity.meta.name}`,
-      );
-    }
-
-    return service;
   }
 }

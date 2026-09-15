@@ -17,9 +17,9 @@ import {
 
 /**
  * ThingWorx integration: schemas and helpers for identifying entities,
- * searching/pulling/pushing entity definitions, and reading service code out of
- * them. All communication goes through {@link thingworxFetch}, which speaks to
- * the ThingWorx REST API with the configured application key.
+ * searching, pulling, pushing, and reading service and subscription code from
+ * entity definitions. All communication goes through {@link thingworxFetch},
+ * which speaks to the ThingWorx REST API with the configured application key.
  */
 
 /** Maps each entity type to the REST collection ("parent type") it lives under. */
@@ -98,6 +98,7 @@ export function getServiceExtensionPattern(): string {
   return `**/*.{${s}}`;
 }
 
+/** Glob for watching all subscription files (`.js`) under a root. */
 export function getSubscriptionExtensionPattern(): string {
   const s = subscriptionSchema.shape.extension.options
     .map((ext) => ext.slice(1))
@@ -107,8 +108,8 @@ export function getSubscriptionExtensionPattern(): string {
 
 /**
  * Uniform view over a fetched ThingWorx entity: its identity, the raw JSON it
- * was parsed from, and its services. `getSource()` returns the raw JSON so it
- * can be persisted or PUT back to the server.
+ * was parsed from, and its services and subscriptions. `getSource()` returns
+ * the raw JSON so it can be persisted or PUT back to the server.
  */
 export interface Entity {
   meta: EntityMeta;
@@ -306,6 +307,10 @@ export async function writeServices(
   return numFulfilled;
 }
 
+/**
+ * Writes the given subscriptions to disk under `<root>/<project>/<entity>/subscriptions/`.
+ * Returns how many writes succeeded.
+ */
 export async function writeSubscriptions(
   rootUri: vscode.Uri,
   entityMeta: EntityMeta,
@@ -357,6 +362,7 @@ export async function writeEntityService(
   await vscode.workspace.fs.writeFile(uri, content);
 }
 
+/** Writes a single subscription to disk under `<root>/<project>/<entity>/subscriptions/`. */
 export async function writeEntitySubscription(
   rootUri: vscode.Uri,
   entityMeta: EntityMeta,
@@ -387,7 +393,18 @@ export async function readEntityServices(
     rootUri,
     ...buildArtifactFolderRelativePath(entityMeta, "service"),
   );
-  const files = await vscode.workspace.fs.readDirectory(folderUri);
+
+  let files: [string, vscode.FileType][];
+
+  try {
+    files = await vscode.workspace.fs.readDirectory(folderUri);
+  } catch (error) {
+    if (error instanceof vscode.FileSystemError) {
+      return [];
+    }
+    throw error;
+  }
+
   const results = await Promise.allSettled(
     files
       .filter(([, filetype]) => filetype === vscode.FileType.File)

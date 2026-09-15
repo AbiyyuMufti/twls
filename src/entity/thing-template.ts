@@ -2,9 +2,10 @@ import z from "zod";
 import { Entity, EntityMeta, Service, Subscription } from "../thingworx";
 
 /**
- * A ThingWorx thing template. Services are looked up from the template's
- * `thingShape` definition: each service is backed by either a `Script` table
- * (`.js`) or a SQL `Query` table (`.sql`) — never both.
+ * A ThingWorx thing template. Services and subscriptions are looked up from
+ * the template's `thingShape` definition: each service is backed by either a
+ * `Script` table (`.js`) or a SQL `Query` table (`.sql`) — never both — while
+ * each subscription is backed by a `Script` table (`.js`).
  */
 export class ThingTemplate implements Entity {
   private readonly schema = z.looseObject({
@@ -137,6 +138,7 @@ export class ThingTemplate implements Entity {
     return services;
   }
 
+  /** Returns one subscription per script implementation, each as a `.js` file. */
   getSubscriptions(): Subscription[] {
     const subscriptions: Subscription[] = [];
 
@@ -173,6 +175,10 @@ export class ThingTemplate implements Entity {
     const queryRow = implementation.configurationTables.Query?.rows[0];
     const scriptRow = implementation.configurationTables.Script?.rows[0];
 
+    if (!queryRow && !scriptRow) {
+      throw new Error("Invalid source");
+    }
+
     if (queryRow) {
       queryRow.sql = source;
     } else if (scriptRow) {
@@ -180,13 +186,14 @@ export class ThingTemplate implements Entity {
     }
   }
 
+  /** Replaces the script code of an existing subscription. */
   updateSubscription(name: string, source: string): void {
     const implementation =
       this.source.thingShape.subscriptions[name]?.serviceImplementation;
 
     if (!implementation) {
       throw new Error(
-        `Service ${name} does not exist on entity ${this.source.name}`,
+        `Subscription ${name} does not exist on entity ${this.source.name}`,
       );
     }
 

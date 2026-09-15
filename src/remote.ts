@@ -7,10 +7,9 @@ import { Entity } from "./thingworx";
 export const REMOTE_SCHEME = "twls-remote";
 
 /**
- * Serves the "original" (remote ThingWorx) side of service-file diffs as
- * virtual read-only documents under the `twls-remote://` scheme. When a local
- * service file is compared, VS Code asks this provider for its remote
- * counterpart instead of a filesystem copy.
+ * Serves the "original" remote ThingWorx artifacts for diffs as virtual
+ * read-only documents under the `twls-remote://` scheme. The provider
+ * supports both service and subscription files.
  */
 export class RemoteTextDocumentContentProvider
   implements vscode.TextDocumentContentProvider, vscode.Disposable
@@ -57,9 +56,9 @@ export class RemoteTextDocumentContentProvider
   }
 
   /**
-   * Resolves the requested virtual service document by looking up its entity
-   * snapshot and returning the matching service's source code. Malformed URIs,
-   * unknown entities, and unknown services each get a readable error message.
+   * Resolves a requested virtual service or subscription document from its
+   * cached entity snapshot. Malformed URIs, unknown entities, unknown artifacts,
+   * and unsupported artifact types each get a readable error message.
    */
   async provideTextDocumentContent(
     uri: vscode.Uri,

@@ -2,8 +2,9 @@ import z from "zod";
 import { Entity, EntityMeta, Service, Subscription } from "../thingworx";
 
 /**
- * A ThingWorx thing shape. Its services are stored as `Script` configuration
- * tables, so each service maps to a `.js` file.
+ * A ThingWorx thing shape. Its services and subscriptions are stored as
+ * `Script` configuration tables, so each service and subscription maps to a
+ * `.js` file.
  */
 export class ThingShape implements Entity {
   private readonly schema = z.looseObject({
@@ -97,6 +98,7 @@ export class ThingShape implements Entity {
     return services;
   }
 
+  /** Returns one subscription per script implementation, read from the source. */
   getSubscriptions(): Subscription[] {
     const subscriptions: Subscription[] = [];
 
@@ -139,13 +141,14 @@ export class ThingShape implements Entity {
     row.code = source;
   }
 
+  /** Replaces the code of an existing subscription in the in-memory source. */
   updateSubscription(name: string, source: string): void {
     const implementation =
       this.source.subscriptions[name]?.serviceImplementation;
 
     if (!implementation) {
       throw new Error(
-        `Service ${name} does not exist on entity ${this.source.name}`,
+        `Subscription ${name} does not exist on entity ${this.source.name}`,
       );
     }
 

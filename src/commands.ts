@@ -56,7 +56,7 @@ export class Commands implements vscode.Disposable {
     );
   }
 
-  /** Runs a command handler and turns failures into an error toast + log. */
+  /** Runs a command handler and logs failures, showing error instances as a toast. */
   private run(fn: () => Promise<void>): void {
     Promise.resolve()
       .then(fn)
