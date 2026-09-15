@@ -54,6 +54,22 @@
         "command": "twls.discard",
         "title": "Discard",
         "icon": "$(discard)"
+      },
+      {
+        "command": "twls.stash",
+        "title": "TWLS: Stash Changes"
+      },
+      {
+        "command": "twls.stashList",
+        "title": "TWLS: Stash List"
+      },
+      {
+        "command": "twls.stashApply",
+        "title": "TWLS: Stash Apply (Latest)"
+      },
+      {
+        "command": "twls.stashPop",
+        "title": "TWLS: Stash Pop (Latest)"
       }
     ],
     "menus": {

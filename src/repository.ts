@@ -28,6 +28,8 @@ import {
   writeSubscriptions,
 } from "./thingworx";
 import { ArtifactKind, buildArtifactRelativePath } from "./artifact-path";
+import { createStashEntry, StashedFile, StashEntry } from "./stash";
+import { StashStore } from "./stash-store";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced";
@@ -49,6 +51,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private workingTreeGroup: vscode.SourceControlResourceGroup;
   private fileSystemWatcher: vscode.FileSystemWatcher;
   private timer?: NodeJS.Timeout;
+  private stashStore: StashStore;
 
   private _entity!: Entity;
 
@@ -69,6 +72,8 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     public readonly config: Config,
     entity: Entity,
   ) {
+    this.stashStore = new StashStore(this.rootUri);
+
     this.sourceControl = vscode.scm.createSourceControl(
       "twls",
       "TWLS",
@@ -168,7 +173,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
    */
   async pull(): Promise<EntityDataCount> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
-      throw new Error("Please push/discard all the changes first before pull.");
+      throw new Error(
+        "Please push, discard or stash all changes first before pull.",
+      );
     }
 
     const newEntity = await fetchEntity(this.config, this._entity.meta);
@@ -206,7 +213,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
    */
   async pullProject(projectMeta: ProjectMeta): Promise<EntityDataCount> {
     if (this.workingTreeGroup.resourceStates.length > 0) {
-      throw new Error("Please push/discard all the changes first before pull.");
+      throw new Error(
+        "Please push, discard or stash all changes first before pull.",
+      );
     }
 
     const entities = await fetchProjectEntity(this.config, projectMeta);
@@ -290,6 +299,128 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       numServices: localServices.length,
       numSubscriptions: localSubscriptions.length,
     };
+  }
+
+  /**
+   * Snapshots every dirty/deleted local file into a new stash entry, then
+   * resets the working tree to match the last-pulled entity so `pull()` can
+   * proceed. Returns the number of files stashed (0 when nothing is dirty).
+   */
+  async stash(): Promise<number> {
+    const dirtyStates = this.workingTreeGroup.resourceStates;
+
+    if (dirtyStates.length === 0) {
+      return 0;
+    }
+
+    const files: StashedFile[] = [];
+
+    for (const resourceState of dirtyStates) {
+      const [kind, artifact] = this.getArtifactFromLocalUri(
+        resourceState.resourceUri,
+      );
+      const relativePath = buildArtifactRelativePath(
+        this._entity.meta,
+        kind,
+        artifact.name,
+        artifact.extension,
+      );
+
+      if (resourceState.contextValue === "deleted") {
+        files.push({ relativePath, kind, deleted: true, content: "" });
+        continue;
+      }
+
+      const document = await vscode.workspace.openTextDocument(
+        resourceState.resourceUri,
+      );
+      files.push({
+        relativePath,
+        kind,
+        deleted: false,
+        content: document.getText(),
+      });
+    }
+
+    const entry = createStashEntry(this._entity.meta.name, files);
+    await this.stashStore.save(entry);
+
+    // Reset working tree to the last-pulled remote snapshot (both dirty
+    // edits and local deletions are undone by this rewrite).
+    await writeEntityServices(this.rootUri, this._entity);
+    await writeEntitySubscriptions(this.rootUri, this._entity);
+    await this.updateWorkingTreeGroup();
+
+    return files.length;
+  }
+
+  /** Lists stash entries for this repository, newest first. */
+  async stashList(): Promise<StashEntry[]> {
+    return this.stashStore.list();
+  }
+
+  /**
+   * Applies a stash entry's files onto the working tree without removing it
+   * from the stash list. Applies the most recent entry when `id` is omitted.
+   * Returns the number of files applied, or `undefined` when there's no
+   * matching stash.
+   */
+  async stashApply(id?: string): Promise<number | undefined> {
+    const entry = await this.resolveStashEntry(id);
+
+    if (!entry) {
+      return undefined;
+    }
+
+    await this.applyStashEntry(entry);
+    return entry.files.length;
+  }
+
+  /** Like {@link stashApply}, but also removes the entry from the stash list. */
+  async stashPop(id?: string): Promise<number | undefined> {
+    const entry = await this.resolveStashEntry(id);
+
+    if (!entry) {
+      return undefined;
+    }
+
+    await this.applyStashEntry(entry);
+    await this.stashStore.delete(entry.id);
+    return entry.files.length;
+  }
+
+  private async resolveStashEntry(
+    id?: string,
+  ): Promise<StashEntry | undefined> {
+    if (id) {
+      return this.stashStore.read(id);
+    }
+
+    const entries = await this.stashStore.list();
+    return entries[0];
+  }
+
+  private async applyStashEntry(entry: StashEntry): Promise<void> {
+    for (const file of entry.files) {
+      const localUri = vscode.Uri.joinPath(this.rootUri, ...file.relativePath);
+
+      if (file.deleted) {
+        try {
+          await vscode.workspace.fs.delete(localUri);
+        } catch (error) {
+          if (!(error instanceof vscode.FileSystemError)) {
+            throw error;
+          }
+        }
+      } else {
+        await vscode.workspace.fs.writeFile(
+          localUri,
+          new TextEncoder().encode(file.content),
+        );
+      }
+    }
+
+    await this.updateWorkingTreeGroup();
   }
 
   /**
