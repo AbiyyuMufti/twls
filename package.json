@@ -70,6 +70,10 @@
       {
         "command": "twls.stashPop",
         "title": "TWLS: Stash Pop (Latest)"
+      },
+      {
+        "command": "twls.showOutput",
+        "title": "TWLS: Show Output"
       }
     ],
     "menus": {
