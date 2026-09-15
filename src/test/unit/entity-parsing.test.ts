@@ -5,6 +5,7 @@ import {
   dualTableThingTemplateSource,
   getHistorySql,
   getReadingCode,
+  readingChangedCode,
   multiRowThingShapeSource,
   noServiceImplementationsThingShapeSource,
   notifyCode,
@@ -20,8 +21,10 @@ import {
 suite("entity-parsing", () => {
   suite("ThingShape", () => {
     test("getServices returns one .js service per script implementation", () => {
-      const services = new ThingShape(thingShapeMeta, thingShapeSource)
-        .getServices();
+      const services = new ThingShape(
+        thingShapeMeta,
+        thingShapeSource,
+      ).getServices();
 
       assert.strictEqual(services.length, 2);
 
@@ -68,9 +71,40 @@ suite("entity-parsing", () => {
 
       thingShape.updateService("GetReading", updatedCode);
 
-      const updated = thingShape.getServices().find(
-        (service) => service.name === "GetReading",
+      const updated = thingShape
+        .getServices()
+        .find((service) => service.name === "GetReading");
+      assert.ok(updated);
+      assert.strictEqual(updated.source, updatedCode);
+    });
+
+    test("getSubscriptions returns one .js subscription per subscription", () => {
+      const subscriptions = new ThingShape(
+        thingShapeMeta,
+        thingShapeSource,
+      ).getSubscriptions();
+
+      assert.strictEqual(subscriptions.length, 1);
+
+      const subscription = subscriptions.find(
+        (subscription) => subscription.name === "ReadingChanged",
       );
+
+      assert.ok(subscription);
+      assert.strictEqual(subscription.extension, ".js");
+      assert.strictEqual(subscription.source, readingChangedCode);
+    });
+
+    test("updateSubscription changes the code served by getSubscriptions", () => {
+      const thingShape = new ThingShape(thingShapeMeta, thingShapeSource);
+      const updatedCode = "me.LogReading();";
+
+      thingShape.updateSubscription("ReadingChanged", updatedCode);
+
+      const updated = thingShape
+        .getSubscriptions()
+        .find((subscription) => subscription.name === "ReadingChanged");
+
       assert.ok(updated);
       assert.strictEqual(updated.source, updatedCode);
     });
@@ -78,8 +112,10 @@ suite("entity-parsing", () => {
 
   suite("ThingTemplate", () => {
     test("getServices maps Query rows to .sql and Script rows to .js", () => {
-      const services = new ThingTemplate(thingTemplateMeta, thingTemplateSource)
-        .getServices();
+      const services = new ThingTemplate(
+        thingTemplateMeta,
+        thingTemplateSource,
+      ).getServices();
 
       assert.strictEqual(services.length, 2);
 
@@ -119,12 +155,46 @@ suite("entity-parsing", () => {
 
       thingTemplate.updateService("GetHistory", updatedSql);
 
-      const updated = thingTemplate.getServices().find(
-        (service) => service.name === "GetHistory",
-      );
+      const updated = thingTemplate
+        .getServices()
+        .find((service) => service.name === "GetHistory");
       assert.ok(updated);
       assert.strictEqual(updated.extension, ".sql");
       assert.strictEqual(updated.source, updatedSql);
+    });
+
+    test("getSubscriptions returns one .js subscription per subscription", () => {
+      const subscriptions = new ThingTemplate(
+        thingTemplateMeta,
+        thingTemplateSource,
+      ).getSubscriptions();
+
+      assert.strictEqual(subscriptions.length, 1);
+
+      const subscription = subscriptions.find(
+        (subscription) => subscription.name === "ReadingChanged",
+      );
+
+      assert.ok(subscription);
+      assert.strictEqual(subscription.extension, ".js");
+      assert.strictEqual(subscription.source, readingChangedCode);
+    });
+
+    test("updateSubscription changes the code served by getSubscriptions", () => {
+      const thingTemplate = new ThingTemplate(
+        thingTemplateMeta,
+        thingTemplateSource,
+      );
+      const updatedCode = "me.LogReading();";
+
+      thingTemplate.updateSubscription("ReadingChanged", updatedCode);
+
+      const updated = thingTemplate
+        .getSubscriptions()
+        .find((subscription) => subscription.name === "ReadingChanged");
+
+      assert.ok(updated);
+      assert.strictEqual(updated.source, updatedCode);
     });
   });
 });
