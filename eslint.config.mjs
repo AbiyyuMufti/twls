@@ -43,4 +43,7 @@ export default defineConfig(
     files: ["eslint.config.mjs"],
     extends: [typescriptEslint.configs.disableTypeChecked],
   },
+  {
+    ignores: ["src/scripts"],
+  },
 );
