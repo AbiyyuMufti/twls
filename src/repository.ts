@@ -6,16 +6,19 @@ import { normalizeEol } from "./text";
 import {
   Entity,
   EntityMeta,
+  getServiceExtensionPattern,
+  Service,
+  Subscription,
+} from "./entity/entity";
+
+import {
   fetchEntity,
   fetchProjectEntity,
-  getServiceExtensionPattern,
   ProjectMeta,
   readEntityServices,
   readEntitySubscriptions,
   searchEntityMeta,
   searchProjectMeta,
-  Service,
-  Subscription,
   updateEntity,
   writeEntityService,
   writeEntityServices,

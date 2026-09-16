@@ -1,44 +1,37 @@
 import z from "zod";
-import { Entity, EntityMeta, Service, Subscription } from "../thingworx";
+import { Entity, EntityMeta, Service, Subscription } from "./entity";
+import {
+  ServiceDefinition,
+  serviceDefinitionsSchema,
+} from "./zod-service-definition";
+import {
+  queryConfigurationTableSchema,
+  scriptConfigurationTableSchema,
+} from "./zod-service-implementation";
+import { subscriptionsSchema } from "./zod-subscription";
 
 /**
  * A ThingWorx thing template. Services and subscriptions are looked up from
  * the template's `thingShape` definition: each service is backed by either a
  * `Script` table (`.js`) or a SQL `Query` table (`.sql`) — never both — while
  * each subscription is backed by a `Script` table (`.js`).
+ * `thingShape.serviceDefinitions` holds each service's parameter list and
+ * result type, separate from the executable code/SQL in
+ * `serviceImplementations`.
  */
 export class ThingTemplate implements Entity {
   private readonly schema = z.looseObject({
     name: z.string(),
     lastModifiedDate: z.number(),
     thingShape: z.looseObject({
+      serviceDefinitions: serviceDefinitionsSchema.default({}),
       serviceImplementations: z.record(
         z.string(),
         z.looseObject({
           configurationTables: z
             .looseObject({
-              Query: z
-                .looseObject({
-                  rows: z
-                    .array(
-                      z.looseObject({
-                        sql: z.string(),
-                      }),
-                    )
-                    .length(1),
-                })
-                .optional(),
-              Script: z
-                .looseObject({
-                  rows: z
-                    .array(
-                      z.looseObject({
-                        code: z.string(),
-                      }),
-                    )
-                    .length(1),
-                })
-                .optional(),
+              Query: queryConfigurationTableSchema.shape.Query.optional(),
+              Script: scriptConfigurationTableSchema.shape.Script.optional(),
             })
             .superRefine((value, ctx) => {
               const hasQuery = value.Query !== undefined;
@@ -60,36 +53,7 @@ export class ThingTemplate implements Entity {
             }),
         }),
       ),
-      subscriptions: z.record(
-        z.string(),
-        z.looseObject({
-          name: z.string(),
-          events: z.array(
-            z.looseObject({
-              sourceType: z.string(),
-              alertName: z.string(),
-              sourceProperty: z.string(),
-              eventName: z.string(),
-              alias: z.string(),
-              source: z.string(),
-              trigger: z.string(),
-            }),
-          ),
-          serviceImplementation: z.looseObject({
-            configurationTables: z.looseObject({
-              Script: z.looseObject({
-                rows: z
-                  .array(
-                    z.looseObject({
-                      code: z.string(),
-                    }),
-                  )
-                  .length(1),
-              }),
-            }),
-          }),
-        }),
-      ),
+      subscriptions: subscriptionsSchema.default({}),
     }),
   });
 
@@ -160,6 +124,11 @@ export class ThingTemplate implements Entity {
     }
 
     return subscriptions;
+  }
+
+  /** Looks up a service's parameter list and result type by name. */
+  getServiceDefinition(name: string): ServiceDefinition | undefined {
+    return this.source.thingShape.serviceDefinitions[name];
   }
 
   /** Replaces the query SQL or script code of an existing service. */

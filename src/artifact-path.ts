@@ -1,4 +1,4 @@
-import type { EntityMeta } from "./thingworx";
+import type { EntityMeta } from "./entity/entity";
 
 export type ArtifactKind = "service" | "subscription";
 

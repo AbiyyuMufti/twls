@@ -1,6 +1,8 @@
 import * as assert from "node:assert";
-import type { EntityMeta, ProjectMeta } from "../../thingworx";
+import type { ProjectMeta } from "../../thingworx";
+
 import { buildEntityPickItem, buildProjectPickItem } from "../../pick-item";
+import { EntityMeta } from "../../entity/entity";
 
 const entityMeta: EntityMeta = {
   name: "MeterReadingShape",

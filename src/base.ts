@@ -1,5 +1,10 @@
 import * as vscode from "vscode";
-import { Entity, entityMap, EntityMeta, entityMetaSchema } from "./thingworx";
+import {
+  Entity,
+  entityMap,
+  EntityMeta,
+  entityMetaSchema,
+} from "./entity/entity";
 
 /**
  * On-disk snapshot store for remote entities.

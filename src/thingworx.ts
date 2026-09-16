@@ -3,52 +3,32 @@ import path from "node:path";
 import * as vscode from "vscode";
 import z from "zod";
 import { Config } from "./config";
-import { ThingShape } from "./entity/thing-shape";
-import { ThingTemplate } from "./entity/thing-template";
+import {
+  Entity,
+  EntityMeta,
+  entityMap,
+  entityMetaSchema,
+  Service,
+  localServiceSchema,
+  Subscription,
+  localSubscriptionSchema,
+} from "./entity/entity";
+
 import {
   buildEntityPickItem,
   buildProjectPickItem,
   type MetaPickItem,
 } from "./pick-item";
+
 import {
   buildArtifactFolderRelativePath,
   buildArtifactRelativePath,
 } from "./artifact-path";
 
 /**
- * ThingWorx integration: schemas and helpers for identifying entities,
- * searching, pulling, pushing, and reading service and subscription code from
- * entity definitions. All communication goes through {@link thingworxFetch},
- * which speaks to the ThingWorx REST API with the configured application key.
+ * ThingWorx REST client: talks to the ThingWorx server (search, fetch, push,
+ * local read/write helpers) via {@link thingworxFetch} with the configured application key.
  */
-
-/** Maps each entity type to the REST collection ("parent type") it lives under. */
-const entityParentTypes = {
-  ThingShape: "ThingShapes",
-  ThingTemplate: "ThingTemplates",
-} as const;
-
-const entityTypes = Object.keys(entityParentTypes) as unknown as readonly [
-  keyof typeof entityParentTypes,
-];
-
-const parentTypes = Object.values(entityParentTypes) as unknown as readonly [
-  (typeof entityParentTypes)[keyof typeof entityParentTypes],
-];
-
-/**
- * Uniquely identifies a ThingWorx entity. `type` is the entity kind
- * (`ThingShape`/`ThingTemplate`) and `parentType` is the REST collection it is
- * stored under (`ThingShapes`/`ThingTemplates`).
- */
-export const entityMetaSchema = z.object({
-  name: z.string(),
-  projectName: z.string(),
-  type: z.enum(entityTypes),
-  parentType: z.enum(parentTypes),
-});
-
-export type EntityMeta = z.infer<typeof entityMetaSchema>;
 
 const projectParentTypes = {
   Project: "Projects",
@@ -73,62 +53,6 @@ export const projectMetaSchema = z.object({
 });
 
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
-
-/** A single callable service: its name, source code, and file extension. */
-const serviceSchema = z.object({
-  name: z.string(),
-  source: z.string(),
-  extension: z.enum([".js", ".sql"]),
-});
-
-const subscriptionSchema = z.object({
-  name: z.string(),
-  source: z.string(),
-  extension: z.enum([".js"]),
-});
-
-export type Service = z.infer<typeof serviceSchema>;
-export type Subscription = z.infer<typeof subscriptionSchema>;
-
-/** Glob for watching all service files (`.js` and `.sql`) under a root. */
-export function getServiceExtensionPattern(): string {
-  const s = serviceSchema.shape.extension.options
-    .map((ext) => ext.slice(1))
-    .join(",");
-  return `**/*.{${s}}`;
-}
-
-/** Glob for watching all subscription files (`.js`) under a root. */
-export function getSubscriptionExtensionPattern(): string {
-  const s = subscriptionSchema.shape.extension.options
-    .map((ext) => ext.slice(1))
-    .join(",");
-  return `**/*.{${s}}`;
-}
-
-/**
- * Uniform view over a fetched ThingWorx entity: its identity, the raw JSON it
- * was parsed from, and its services and subscriptions. `getSource()` returns
- * the raw JSON so it can be persisted or PUT back to the server.
- */
-export interface Entity {
-  meta: EntityMeta;
-  getSource(): unknown;
-  getLastModifiedDate(): number;
-  getServices(): Service[];
-  getSubscriptions(): Subscription[];
-  updateService(name: string, source: string): void;
-  updateSubscription(name: string, source: string): void;
-}
-
-/** Constructs the right entity class for each {@link EntityMeta.type}. */
-export const entityMap = {
-  ThingShape: ThingShape,
-  ThingTemplate: ThingTemplate,
-} satisfies Record<
-  EntityMeta["type"],
-  new (meta: EntityMeta, source: unknown) => Entity
->;
 
 /**
  * Opens a QuickPick that live-searches entities and resolves to the picked
@@ -423,7 +347,7 @@ async function readEntityService(
   const extension = path.extname(filename);
   const name = path.basename(filename, extension);
   const content = await vscode.workspace.fs.readFile(uri);
-  const service = serviceSchema.parse({
+  const service = localServiceSchema.parse({
     name,
     extension,
     source: new TextDecoder().decode(content),
@@ -474,7 +398,7 @@ async function readEntitySubscription(
   const extension = path.extname(filename);
   const name = path.basename(filename, extension);
   const content = await vscode.workspace.fs.readFile(uri);
-  return subscriptionSchema.parse({
+  return localSubscriptionSchema.parse({
     name,
     extension,
     source: new TextDecoder().decode(content),

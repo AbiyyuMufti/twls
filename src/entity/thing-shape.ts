@@ -1,61 +1,29 @@
 import z from "zod";
-import { Entity, EntityMeta, Service, Subscription } from "../thingworx";
+import { Entity, EntityMeta, Service, Subscription } from "./entity";
+import {
+  ServiceDefinition,
+  serviceDefinitionsSchema,
+} from "./zod-service-definition";
+import { scriptServiceImplementationSchema } from "./zod-service-implementation";
+import { subscriptionsSchema } from "./zod-subscription";
 
 /**
  * A ThingWorx thing shape. Its services and subscriptions are stored as
  * `Script` configuration tables, so each service and subscription maps to a
- * `.js` file.
+ * `.js` file. `serviceDefinitions` holds each service's parameter list and
+ * result type, separate from the executable code in
+ * `serviceImplementations`.
  */
 export class ThingShape implements Entity {
   private readonly schema = z.looseObject({
     name: z.string(),
     lastModifiedDate: z.number(),
+    serviceDefinitions: serviceDefinitionsSchema.default({}),
     serviceImplementations: z.record(
       z.string(),
-      z.looseObject({
-        configurationTables: z.looseObject({
-          Script: z.looseObject({
-            rows: z
-              .array(
-                z.looseObject({
-                  code: z.string(),
-                }),
-              )
-              .length(1),
-          }),
-        }),
-      }),
+      scriptServiceImplementationSchema,
     ),
-    subscriptions: z.record(
-      z.string(),
-      z.looseObject({
-        name: z.string(),
-        events: z.array(
-          z.looseObject({
-            sourceType: z.string(),
-            alertName: z.string(),
-            sourceProperty: z.string(),
-            eventName: z.string(),
-            alias: z.string(),
-            source: z.string(),
-            trigger: z.string(),
-          }),
-        ),
-        serviceImplementation: z.looseObject({
-          configurationTables: z.looseObject({
-            Script: z.looseObject({
-              rows: z
-                .array(
-                  z.looseObject({
-                    code: z.string(),
-                  }),
-                )
-                .length(1),
-            }),
-          }),
-        }),
-      }),
-    ),
+    subscriptions: subscriptionsSchema.default({}),
   });
 
   private source: z.infer<typeof this.schema>;
@@ -120,6 +88,11 @@ export class ThingShape implements Entity {
     }
 
     return subscriptions;
+  }
+
+  /** Looks up a service's parameter list and result type by name. */
+  getServiceDefinition(name: string): ServiceDefinition | undefined {
+    return this.source.serviceDefinitions[name];
   }
 
   /** Replaces the code of an existing service in the in-memory source. */

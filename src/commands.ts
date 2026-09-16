@@ -4,11 +4,11 @@ import { Config } from "./config";
 import { Model } from "./model";
 import { Repository } from "./repository";
 import {
-  EntityMeta,
   fetchProjectEntity,
   showEntityMetaPick,
   showProjectMetaPick,
 } from "./thingworx";
+import { EntityMeta } from "./entity/entity";
 
 /**
  * Registers all `twls.*` VS Code commands and wires them to the shared
