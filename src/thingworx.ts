@@ -1,6 +1,7 @@
 import http from "node:http";
 import path from "node:path";
 import * as vscode from "vscode";
+import yaml from "js-yaml";
 import z from "zod";
 import { Config } from "./config";
 import {
@@ -24,6 +25,13 @@ import {
   buildArtifactFolderRelativePath,
   buildArtifactRelativePath,
 } from "./artifact-path";
+import {
+  buildDefinitionHeaderComment,
+  collapseServiceDefinition,
+  expandServiceDefinition,
+  ServiceDefinition,
+  serviceDefinitionAuthoringSchema,
+} from "./entity/zod-service-definition";
 
 /**
  * ThingWorx REST client: talks to the ThingWorx server (search, fetch, push,
@@ -53,6 +61,10 @@ export const projectMetaSchema = z.object({
 });
 
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
+
+const DEFINITION_EXTENSION = ".yaml";
+
+export type QueryConfig = { timeout: number; maxItems: number };
 
 /**
  * Opens a QuickPick that live-searches entities and resolves to the picked
@@ -213,6 +225,66 @@ export async function fetchProjectEntity(
   return Promise.all(entities);
 }
 
+/** Writes a service's lean YAML `.definition` sidecar to disk. */
+export async function writeEntityServiceDefinition(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
+  serviceName: string,
+  definition: ServiceDefinition,
+  queryConfig?: QueryConfig,
+): Promise<void> {
+  const uri = vscode.Uri.joinPath(
+    rootUri,
+    ...buildArtifactRelativePath(
+      entityMeta,
+      "service",
+      serviceName,
+      DEFINITION_EXTENSION,
+    ),
+  );
+
+  const authoring = collapseServiceDefinition(definition, queryConfig);
+  const content = new TextEncoder().encode(
+    buildDefinitionHeaderComment() + yaml.dump(authoring),
+  );
+  await vscode.workspace.fs.writeFile(uri, content);
+}
+
+/**
+ * Writes `.definition` sidecars for a set of services. `getDefinition`/
+ * `getQueryConfig` are passed in rather than an `Entity` directly so this
+ * stays usable for both "every service on the entity" (pull) and any future
+ * filtered subset, mirroring how `writeServices` takes a `Service[]` rather
+ * than an `Entity`.
+ */
+export async function writeEntityServiceDefinitions(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
+  services: { name: string }[],
+  getDefinition: (name: string) => ServiceDefinition | undefined,
+  getQueryConfig: (name: string) => QueryConfig | undefined,
+): Promise<number> {
+  const results = await Promise.allSettled(
+    services.map(async (service) => {
+      const definition = getDefinition(service.name);
+
+      if (!definition) {
+        return;
+      }
+
+      await writeEntityServiceDefinition(
+        rootUri,
+        entityMeta,
+        service.name,
+        definition,
+        getQueryConfig(service.name),
+      );
+    }),
+  );
+
+  return results.filter((result) => result.status === "fulfilled").length;
+}
+
 /**
  * Writes the given services to disk under `<root>/<project>/<entity>/`.
  * Returns how many of the writes succeeded.
@@ -229,6 +301,33 @@ export async function writeServices(
     (result) => result.status === "fulfilled",
   ).length;
   return numFulfilled;
+}
+
+/** Writes a single service to disk under `<root>/<project>/<entity>/`. */
+export async function writeEntityService(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
+  service: Service,
+): Promise<void> {
+  const uri = vscode.Uri.joinPath(
+    rootUri,
+    ...buildArtifactRelativePath(
+      entityMeta,
+      "service",
+      service.name,
+      service.extension,
+    ),
+  );
+  const content = new TextEncoder().encode(service.source);
+  await vscode.workspace.fs.writeFile(uri, content);
+}
+
+/** Writes all services of an entity to disk; returns the number written. */
+export async function writeEntityServices(
+  rootUri: vscode.Uri,
+  entity: Entity,
+): Promise<number> {
+  return writeServices(rootUri, entity.meta, entity.getServices());
 }
 
 /**
@@ -251,39 +350,12 @@ export async function writeSubscriptions(
   return numFulfilled;
 }
 
-/** Writes all services of an entity to disk; returns the number written. */
-export async function writeEntityServices(
-  rootUri: vscode.Uri,
-  entity: Entity,
-): Promise<number> {
-  return writeServices(rootUri, entity.meta, entity.getServices());
-}
-
 /** Writes all subscriptions of an entity to disk; returns the number written. */
 export async function writeEntitySubscriptions(
   rootUri: vscode.Uri,
   entity: Entity,
 ): Promise<number> {
   return writeSubscriptions(rootUri, entity.meta, entity.getSubscriptions());
-}
-
-/** Writes a single service to disk under `<root>/<project>/<entity>/`. */
-export async function writeEntityService(
-  rootUri: vscode.Uri,
-  entityMeta: EntityMeta,
-  service: Service,
-): Promise<void> {
-  const uri = vscode.Uri.joinPath(
-    rootUri,
-    ...buildArtifactRelativePath(
-      entityMeta,
-      "service",
-      service.name,
-      service.extension,
-    ),
-  );
-  const content = new TextEncoder().encode(service.source);
-  await vscode.workspace.fs.writeFile(uri, content);
 }
 
 /** Writes a single subscription to disk under `<root>/<project>/<entity>/subscriptions/`. */
@@ -405,6 +477,54 @@ async function readEntitySubscription(
   });
 }
 
+/**
+ * Reads and validates a service's `.definition` sidecar, expanding it back
+ * into a full `ServiceDefinition`. Returns `undefined` if no sidecar file
+ * exists for that service — that's the normal case for a service that was
+ * pulled before this feature existed, or hasn't had its signature edited.
+ */
+export async function readEntityServiceDefinition(
+  rootUri: vscode.Uri,
+  entityMeta: EntityMeta,
+  serviceName: string,
+): Promise<
+  { definition: ServiceDefinition; queryConfig?: QueryConfig } | undefined
+> {
+  const uri = vscode.Uri.joinPath(
+    rootUri,
+    ...buildArtifactRelativePath(
+      entityMeta,
+      "service",
+      serviceName,
+      DEFINITION_EXTENSION,
+    ),
+  );
+
+  let content: Uint8Array;
+
+  try {
+    content = await vscode.workspace.fs.readFile(uri);
+  } catch (error) {
+    if (error instanceof vscode.FileSystemError) {
+      return undefined;
+    }
+    throw error;
+  }
+
+  const raw = yaml.load(new TextDecoder().decode(content));
+  const authoring = serviceDefinitionAuthoringSchema.parse(raw);
+
+  const queryConfig =
+    authoring.timeout !== undefined && authoring.maxItems !== undefined
+      ? { timeout: authoring.timeout, maxItems: authoring.maxItems }
+      : undefined;
+
+  return {
+    definition: expandServiceDefinition(serviceName, authoring),
+    queryConfig,
+  };
+}
+
 /** Pushes a whole entity definition back to ThingWorx with an optional comment. */
 export async function updateEntity(
   config: Config,
@@ -423,6 +543,8 @@ export async function updateEntity(
     body: entity.getSource(),
   });
 }
+
+export async function createNewService(): Promise<void> {}
 
 /**
  * Searches ThingWorx (SpotlightSearchV2) for entities matching the expression,

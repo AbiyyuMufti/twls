@@ -85,6 +85,15 @@ export class Commands implements vscode.Disposable {
       vscode.commands.registerCommand("twls.showOutput", () => {
         logger.show();
       }),
+
+      vscode.commands.registerCommand(
+        "twls.newService",
+        (sourceControl?: vscode.SourceControl) => {
+          this.run("New Service", () =>
+            this.newService(sourceControl?.rootUri),
+          );
+        },
+      ),
     );
   }
 
@@ -220,6 +229,57 @@ export class Commands implements vscode.Disposable {
     });
   }
 
+  async newService(rootUri?: vscode.Uri): Promise<void> {
+    const repo = await this.resolveRepository(rootUri);
+
+    if (!repo) {
+      return;
+    }
+
+    const name = await vscode.window.showInputBox({
+      prompt: "New service name",
+      ignoreFocusOut: true,
+      validateInput: (value) => {
+        if (!value) {
+          return "Name is required.";
+        }
+        if (
+          repo.entity.getServices().some((service) => service.name === value)
+        ) {
+          return `A service named "${value}" already exists on this entity.`;
+        }
+        return undefined;
+      },
+    });
+
+    if (!name) {
+      return;
+    }
+
+    const kindOptions: Array<"JavaScript" | "SQL"> =
+      repo.entity.meta.type === "ThingTemplate"
+        ? ["JavaScript", "SQL"]
+        : ["JavaScript"];
+
+    const kindPick =
+      kindOptions.length > 1
+        ? await vscode.window.showQuickPick(kindOptions, {
+            placeHolder: "Service kind",
+            ignoreFocusOut: true,
+          })
+        : kindOptions[0];
+
+    if (!kindPick) {
+      return;
+    }
+
+    await repo.scaffoldNewService(name, kindPick === "SQL" ? "sql" : "js");
+
+    this.notify(
+      `Created local boilerplate for "${name}". Edit the .definition and code files — pushing a brand-new service isn't wired up yet, that's next.`,
+    );
+  }
+
   async pull(rootUri?: vscode.Uri): Promise<void> {
     const repo = await this.resolveRepository(rootUri);
 
@@ -227,7 +287,8 @@ export class Commands implements vscode.Disposable {
       return;
     }
 
-    const { numServices, numSubscriptions } = await repo.pull();
+    const { numServices, numSubscriptions, numServiceDefinitions } =
+      await repo.pull();
 
     if (numServices === 0 && numSubscriptions === 0) {
       this.notify(
@@ -235,7 +296,7 @@ export class Commands implements vscode.Disposable {
       );
     } else {
       this.notify(
-        `Pulled ${numServices} service(s) and ${numSubscriptions} subscription(s) from ${repo.entity.meta.name} successfully.`,
+        `Pulled ${numServices} service(s) with ${numServiceDefinitions} definitions and ${numSubscriptions} subscription(s) from ${repo.entity.meta.name} successfully.`,
       );
     }
   }

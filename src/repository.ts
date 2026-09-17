@@ -6,7 +6,7 @@ import { normalizeEol } from "./text";
 import {
   Entity,
   EntityMeta,
-  getServiceExtensionPattern,
+  getWatchedFilePattern,
   Service,
   Subscription,
 } from "./entity/entity";
@@ -15,12 +15,14 @@ import {
   fetchEntity,
   fetchProjectEntity,
   ProjectMeta,
+  readEntityServiceDefinition,
   readEntityServices,
   readEntitySubscriptions,
   searchEntityMeta,
   searchProjectMeta,
   updateEntity,
   writeEntityService,
+  writeEntityServiceDefinitions,
   writeEntityServices,
   writeEntitySubscription,
   writeEntitySubscriptions,
@@ -32,17 +34,25 @@ import {
   buildArtifactRelativePath,
   ResolvedArtifact,
   resolveArtifact,
+  buildArtifactFolderRelativePath,
 } from "./artifact-path";
 import { createStashEntry, StashedFile, StashEntry } from "./stash";
 import { StashStore } from "./stash-store";
+import yaml from "js-yaml";
+import {
+  buildDefinitionHeaderComment,
+  buildServiceDefinitionTemplate,
+  collapseServiceDefinition,
+} from "./entity/zod-service-definition";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
-type State = "dirty" | "deleted" | "synced";
+type State = "dirty" | "deleted" | "synced" | "new";
 
 /** Number of services and subscriptions affected by a repository operation. */
 export type EntityDataCount = {
   numServices: number;
   numSubscriptions: number;
+  numServiceDefinitions: number;
 };
 
 /**
@@ -99,7 +109,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     );
 
     this.fileSystemWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(rootUri, getServiceExtensionPattern()),
+      new vscode.RelativePattern(rootUri, getWatchedFilePattern()),
     );
     this.fileSystemWatcher.onDidCreate(() => {
       this.tryUpdateWorkingTreeGroup();
@@ -191,6 +201,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       return {
         numServices: 0,
         numSubscriptions: 0,
+        numServiceDefinitions: 0,
       };
     }
 
@@ -198,6 +209,14 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     const numServicesPulled = await writeEntityServices(
       this.rootUri,
       newEntity,
+    );
+
+    const numServiceDefinitionPulled = await writeEntityServiceDefinitions(
+      this.rootUri,
+      newEntity.meta,
+      newEntity.getServices(),
+      (name) => newEntity.getServiceDefinition(name),
+      (name) => newEntity.getServiceQueryConfig(name),
     );
 
     const numSubscriptionsPulled = await writeEntitySubscriptions(
@@ -208,6 +227,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return {
       numServices: numServicesPulled,
       numSubscriptions: numSubscriptionsPulled,
+      numServiceDefinitions: numServiceDefinitionPulled,
     };
   }
 
@@ -231,6 +251,18 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       }),
     );
 
+    const resultServiceDefinitions = await Promise.all(
+      (entities || []).map((entity) =>
+        writeEntityServiceDefinitions(
+          this.rootUri,
+          entity.meta,
+          entity.getServices(),
+          (name) => entity.getServiceDefinition(name),
+          (name) => entity.getServiceQueryConfig(name),
+        ),
+      ),
+    );
+
     const resultSubscriptions = await Promise.all(
       (entities || []).map(async (entity) => {
         return await writeEntitySubscriptions(this.rootUri, entity);
@@ -243,6 +275,11 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       0,
     );
 
+    const numServiceDefinitionsPulled = resultServiceDefinitions.reduce(
+      (sum, count) => sum + count,
+      0,
+    );
+
     const numSubscriptionsPulled = resultSubscriptions.reduce(
       (sum, count) => sum + count,
       0,
@@ -250,6 +287,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return {
       numServices: numServicesPulled,
       numSubscriptions: numSubscriptionsPulled,
+      numServiceDefinitions: numServiceDefinitionsPulled,
     };
   }
 
@@ -276,7 +314,41 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       this.rootUri,
       this._entity.meta,
     );
+    const knownServiceNames = new Set(
+      this._entity.getServices().map((s) => s.name),
+    );
+
     for (const service of localServices) {
+      const localDefinition = await readEntityServiceDefinition(
+        this.rootUri,
+        this._entity.meta,
+        service.name,
+      );
+
+      if (!knownServiceNames.has(service.name)) {
+        if (!localDefinition) {
+          throw new Error(
+            `New service "${service.name}" has no .yaml definition — cannot create it without one.`,
+          );
+        }
+
+        this._entity.createService(
+          service.name,
+          localDefinition.definition,
+          service.source,
+          service.extension,
+          localDefinition.queryConfig,
+        );
+        continue;
+      }
+
+      if (localDefinition) {
+        this._entity.updateServiceDefinition(
+          service.name,
+          localDefinition.definition,
+          localDefinition.queryConfig,
+        );
+      }
       this._entity.updateService(service.name, service.source);
     }
 
@@ -303,6 +375,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return {
       numServices: localServices.length,
       numSubscriptions: localSubscriptions.length,
+      numServiceDefinitions: 0, // TODO
     };
   }
 
@@ -543,6 +616,41 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     }
   }
 
+  /**
+   * Writes local boilerplate for a brand-new service: a `.definition`
+   * sidecar plus a stub code file. Purely local — nothing is sent to
+   * ThingWorx yet; wiring an actual create-and-push flow is the next slice.
+   */
+  async scaffoldNewService(name: string, kind: "js" | "sql"): Promise<void> {
+    const extension = kind === "sql" ? ".sql" : ".js";
+
+    const codeUri = vscode.Uri.joinPath(
+      this.rootUri,
+      ...buildArtifactRelativePath(
+        this._entity.meta,
+        "service",
+        name,
+        extension,
+      ),
+    );
+    const definitionUri = vscode.Uri.joinPath(
+      this.rootUri,
+      ...buildArtifactRelativePath(this._entity.meta, "service", name, ".yaml"),
+    );
+
+    const codeStub =
+      kind === "sql" ? "-- New SQL service.\nSELECT 1;\n" : "// New service.\n";
+
+    await vscode.workspace.fs.writeFile(
+      codeUri,
+      new TextEncoder().encode(codeStub),
+    );
+    await vscode.workspace.fs.writeFile(
+      definitionUri,
+      new TextEncoder().encode(buildServiceDefinitionTemplate(kind)),
+    );
+  }
+
   private setEntity(entity: Entity): void {
     this._entity = entity;
     this._onEntityChange.fire(entity);
@@ -568,6 +676,14 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       );
 
     await writeServices(this.rootUri, this._entity.meta, servicesToBeWritten);
+
+    await writeEntityServiceDefinitions(
+      this.rootUri,
+      this._entity.meta,
+      servicesToBeWritten,
+      (name) => this._entity.getServiceDefinition(name),
+      (name) => this._entity.getServiceQueryConfig(name),
+    );
   }
 
   private async writeNonDirtySubscriptions(): Promise<void> {
@@ -608,11 +724,14 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     if (servicesToBeWritten?.length) {
       await Promise.all(
-        servicesToBeWritten.map(async (entityServicesPair) => {
-          await writeServices(
+        servicesToBeWritten.map(async ({ entity, services }) => {
+          await writeServices(this.rootUri, entity.meta, services);
+          await writeEntityServiceDefinitions(
             this.rootUri,
-            entityServicesPair.entity.meta,
-            entityServicesPair.services,
+            entity.meta,
+            services,
+            (name) => entity.getServiceDefinition(name),
+            (name) => entity.getServiceQueryConfig(name),
           );
         }),
       );
@@ -721,6 +840,79 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       }
     }
 
+    // Definition sidecars — services only, diffed against a freshly
+    // rebuilt canonical form so YAML formatting quirks don't false-positive.
+    for (const service of this._entity.getServices()) {
+      const definition = this._entity.getServiceDefinition(service.name);
+
+      if (!definition) {
+        continue;
+      }
+
+      const definitionUri = vscode.Uri.joinPath(
+        this.rootUri,
+        ...buildArtifactRelativePath(
+          this._entity.meta,
+          "service",
+          service.name,
+          ".yaml",
+        ),
+      );
+
+      const queryConfig = this._entity.getServiceQueryConfig(service.name);
+      const canonical =
+        buildDefinitionHeaderComment() +
+        yaml.dump(collapseServiceDefinition(definition, queryConfig));
+
+      let state: State = "synced";
+
+      try {
+        const document = await vscode.workspace.openTextDocument(definitionUri);
+        if (normalizeEol(document.getText()) !== normalizeEol(canonical)) {
+          state = "dirty";
+        }
+      } catch (error) {
+        if (error instanceof vscode.FileSystemError) {
+          state = "deleted";
+        } else {
+          throw error;
+        }
+      }
+
+      if (state !== "synced") {
+        workingTreeResources.push(
+          this.toSourceControlResourceState(definitionUri, state),
+        );
+      }
+    }
+
+    // Brand-new scaffolded services — no entity counterpart to diff against.
+    for (const { name, codeUri } of await this.findUntrackedServiceFiles()) {
+      workingTreeResources.push(
+        this.toSourceControlResourceState(codeUri, "new"),
+      );
+
+      const definitionUri = vscode.Uri.joinPath(
+        this.rootUri,
+        ...buildArtifactRelativePath(
+          this._entity.meta,
+          "service",
+          name,
+          ".yaml",
+        ),
+      );
+
+      try {
+        await vscode.workspace.fs.stat(definitionUri);
+        workingTreeResources.push(
+          this.toSourceControlResourceState(definitionUri, "new"),
+        );
+      } catch {
+        // TODO: GIVES WARNING THAT IT WAS FAILED
+        // Scaffolded without a definition sidecar (manually created code only) — skip.
+      }
+    }
+
     this.workingTreeGroup.resourceStates = workingTreeResources;
     this.sourceControl.count = this.workingTreeGroup.resourceStates.length;
   }
@@ -764,14 +956,27 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
         };
         break;
 
+      case "new":
+        title += " (New)";
+        command = {
+          title,
+          command: "vscode.open",
+          arguments: [localUri, { preview: true }, title],
+        };
+        decorations = {
+          iconPath: new vscode.ThemeIcon("diff-added"),
+          tooltip: title,
+        };
+        break;
+
       case "synced":
         throw new Error(`Invalid state: ${state}`);
     }
 
     return {
       resourceUri: localUri,
-      command,
-      decorations,
+      command: command,
+      decorations: decorations,
       contextValue: state,
     };
   }
@@ -800,5 +1005,36 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
         artifact.extension,
       ),
     );
+  }
+
+  private async findUntrackedServiceFiles(): Promise<
+    { name: string; codeUri: vscode.Uri }[]
+  > {
+    const folderUri = vscode.Uri.joinPath(
+      this.rootUri,
+      ...buildArtifactFolderRelativePath(this._entity.meta, "service"),
+    );
+
+    let files: [string, vscode.FileType][];
+    try {
+      files = await vscode.workspace.fs.readDirectory(folderUri);
+    } catch {
+      return [];
+    }
+
+    const knownNames = new Set(this._entity.getServices().map((s) => s.name));
+    const codeFiles = files.filter(
+      ([name]) => name.endsWith(".js") || name.endsWith(".sql"),
+    );
+
+    return codeFiles
+      .map(([filename]) => {
+        const extension = path.extname(filename);
+        return {
+          name: path.basename(filename, extension),
+          codeUri: vscode.Uri.joinPath(folderUri, filename),
+        };
+      })
+      .filter((f) => !knownNames.has(f.name));
   }
 }
