@@ -78,6 +78,10 @@
       {
         "command": "twls.newService",
         "title": "TWLS: New Service"
+      },
+      {
+        "command": "twls.callService",
+        "title": "TWLS: Call Service"
       }
     ],
     "menus": {
