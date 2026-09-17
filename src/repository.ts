@@ -807,6 +807,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       let state: State = "synced";
 
       try {
+        await vscode.workspace.fs.stat(definitionUri);
         const document = await vscode.workspace.openTextDocument(definitionUri);
         if (normalizeEol(document.getText()) !== normalizeEol(canonical)) {
           state = "dirty";
