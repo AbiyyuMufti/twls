@@ -30,6 +30,7 @@ import {
 import {
   ArtifactKind,
   buildArtifactRelativePath,
+  ResolvedArtifact,
   resolveArtifact,
 } from "./artifact-path";
 import { createStashEntry, StashedFile, StashEntry } from "./stash";
@@ -307,10 +308,17 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   /**
    * Snapshots every dirty/deleted local file into a new stash entry, then
-   * resets the working tree to match the last-pulled entity so `pull()` can
-   * proceed. Returns the number of files stashed (0 when nothing is dirty).
+   * resets those files to the last-pulled remote snapshot so `pull()` can
+   * proceed. Only the captured files are rewritten, so an edit that was not
+   * captured can never be overwritten. Returns the number of files stashed
+   * (0 when nothing is dirty).
    */
   async stash(): Promise<number> {
+    // Refresh first: the watcher that keeps `resourceStates` up to date is
+    // debounced, so a just-saved edit may not be tracked yet. Capturing from a
+    // stale snapshot would then let the reset below destroy that edit.
+    await this.updateWorkingTreeGroup();
+
     const dirtyStates = this.workingTreeGroup.resourceStates;
 
     if (dirtyStates.length === 0) {
@@ -318,6 +326,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     }
 
     const files: StashedFile[] = [];
+    const captured: ResolvedArtifact[] = [];
 
     for (const resourceState of dirtyStates) {
       const resolved = resolveArtifact(
@@ -332,6 +341,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       }
 
       const { kind, artifact } = resolved;
+      captured.push(resolved);
 
       const relativePath = buildArtifactRelativePath(
         this._entity.meta,
@@ -359,10 +369,24 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     const entry = createStashEntry(this._entity.meta.name, files);
     await this.stashStore.save(entry);
 
-    // Reset working tree to the last-pulled remote snapshot (both dirty
-    // edits and local deletions are undone by this rewrite).
-    await writeEntityServices(this.rootUri, this._entity);
-    await writeEntitySubscriptions(this.rootUri, this._entity);
+    // Reset only the captured files to the last-pulled remote snapshot: this
+    // undoes dirty edits and recreates local deletions without touching any
+    // file that was not stashed.
+    for (const resolved of captured) {
+      if (resolved.kind === "service") {
+        await writeEntityService(
+          this.rootUri,
+          this._entity.meta,
+          resolved.artifact,
+        );
+      } else {
+        await writeEntitySubscription(
+          this.rootUri,
+          this._entity.meta,
+          resolved.artifact,
+        );
+      }
+    }
     await this.updateWorkingTreeGroup();
 
     return files.length;
