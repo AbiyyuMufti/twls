@@ -32,7 +32,8 @@ import {
   ServiceDefinition,
   serviceDefinitionAuthoringSchema,
 } from "./entity/zod-service-definition";
-import { warnCaseCollisions } from "./warn-case-collision";
+import { warnDroppedCaseCollisions } from "./warn-case-collision";
+import { dedupeByPreferredCase } from "./utilities/case-collision";
 
 /**
  * ThingWorx REST client: talks to the ThingWorx server (search, fetch, push,
@@ -265,8 +266,10 @@ export async function writeEntityServiceDefinitions(
   getDefinition: (name: string) => ServiceDefinition | undefined,
   getQueryConfig: (name: string) => QueryConfig | undefined,
 ): Promise<number> {
+  const { kept, dropped } = dedupeByPreferredCase(services);
+
   const results = await Promise.allSettled(
-    services.map(async (service) => {
+    kept.map(async (service) => {
       const definition = getDefinition(service.name);
 
       if (!definition) {
@@ -283,7 +286,16 @@ export async function writeEntityServiceDefinitions(
     }),
   );
 
-  return results.filter((result) => result.status === "fulfilled").length;
+  const numFulfilled = results.filter(
+    (result) => result.status === "fulfilled",
+  ).length;
+
+  warnDroppedCaseCollisions(
+    entityMeta,
+    dropped.map((service) => ({ name: service.name, label: "definition" })),
+  );
+
+  return numFulfilled;
 }
 
 /**
@@ -295,12 +307,19 @@ export async function writeServices(
   entityMeta: EntityMeta,
   services: Service[],
 ): Promise<number> {
+  const { kept, dropped } = dedupeByPreferredCase(services);
+
   const results = await Promise.allSettled(
-    services.map((service) => writeEntityService(rootUri, entityMeta, service)),
+    kept.map((service) => writeEntityService(rootUri, entityMeta, service)),
   );
   const numFulfilled = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
+
+  warnDroppedCaseCollisions(
+    entityMeta,
+    dropped.map((service) => ({ name: service.name, label: "code file" })),
+  );
 
   return numFulfilled;
 }
@@ -341,8 +360,10 @@ export async function writeSubscriptions(
   entityMeta: EntityMeta,
   subscriptions: Subscription[],
 ): Promise<number> {
+  const { kept, dropped } = dedupeByPreferredCase(subscriptions);
+
   const results = await Promise.allSettled(
-    subscriptions.map((subscription) =>
+    kept.map((subscription) =>
       writeEntitySubscription(rootUri, entityMeta, subscription),
     ),
   );
@@ -350,15 +371,14 @@ export async function writeSubscriptions(
     (result) => result.status === "fulfilled",
   ).length;
 
-  void warnCaseCollisions(
-    rootUri,
+  warnDroppedCaseCollisions(
     entityMeta,
-    "subscription",
-    subscriptions.map((subscription) => ({
-      ...subscription,
+    dropped.map((subscription) => ({
+      name: subscription.name,
       label: "subscription",
     })),
   );
+
   return numFulfilled;
 }
 
@@ -711,53 +731,4 @@ async function thingworxFetch(
   }
 
   return;
-}
-
-/**
- * Merged case-collision check across a service's code file and its `.yaml`
- * definition sidecar. Call this once both have been written for an entity.
- */
-export async function warnEntityServiceCaseCollisions(
-  rootUri: vscode.Uri,
-  entity: Entity,
-): Promise<void> {
-  const services = entity.getServices();
-
-  const codeArtifacts = services.map((service) => ({
-    name: service.name,
-    extension: service.extension,
-    source: service.source,
-    label: "code file",
-  }));
-
-  const definitionArtifacts = services.flatMap((service) => {
-    const definition = entity.getServiceDefinition(service.name);
-
-    if (!definition) {
-      return [];
-    }
-
-    const source =
-      buildDefinitionHeaderComment() +
-      yaml.dump(
-        collapseServiceDefinition(
-          definition,
-          entity.getServiceQueryConfig(service.name),
-        ),
-      );
-
-    return [
-      {
-        name: service.name,
-        extension: DEFINITION_EXTENSION,
-        source,
-        label: "definition",
-      },
-    ];
-  });
-
-  await warnCaseCollisions(rootUri, entity.meta, "service", [
-    ...codeArtifacts,
-    ...definitionArtifacts,
-  ]);
 }
