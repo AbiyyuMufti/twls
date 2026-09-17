@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { EntityMeta } from "./entity/entity";
 
 export type ArtifactKind = "service" | "subscription";
@@ -26,4 +27,55 @@ export function buildArtifactRelativePath(
     ...buildArtifactFolderRelativePath(entityMeta, kind),
     artifactName + extension,
   ];
+}
+
+/** Maps a folder segment back to the artifact kind that lives in it. */
+export function artifactKindFromFolderName(
+  folderName: string,
+): ArtifactKind | undefined {
+  return (Object.keys(artifactFolderName) as ArtifactKind[]).find(
+    (kind) => artifactFolderName[kind] === folderName,
+  );
+}
+
+/** An artifact file decoded from a path: its kind, name, and extension. */
+export type ParsedArtifactPath = {
+  kind: ArtifactKind;
+  name: string;
+  extension: string;
+};
+
+/**
+ * Decodes the trailing `<services|subscriptions>/<name><extension>` segments of
+ * an artifact path. Accepts relative or absolute paths, POSIX or Windows.
+ * Returns `undefined` when the path isn't an artifact file in a known folder.
+ */
+export function parseArtifactPath(
+  filePath: string,
+): ParsedArtifactPath | undefined {
+  const segments = filePath.split(/[\\/]+/).filter((segment) => segment !== "");
+  const filename = segments[segments.length - 1];
+  const folderName = segments[segments.length - 2];
+
+  if (!filename || !folderName) {
+    return undefined;
+  }
+
+  const kind = artifactKindFromFolderName(folderName);
+
+  if (!kind) {
+    return undefined;
+  }
+
+  const extension = path.extname(filename);
+
+  if (!extension) {
+    return undefined;
+  }
+
+  return {
+    kind,
+    name: path.basename(filename, extension),
+    extension,
+  };
 }

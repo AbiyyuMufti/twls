@@ -1,7 +1,9 @@
 import * as assert from "node:assert";
 import {
+  artifactKindFromFolderName,
   buildArtifactRelativePath,
   buildArtifactFolderRelativePath,
+  parseArtifactPath,
 } from "../../artifact-path";
 
 suite("artifact-path", () => {
@@ -48,5 +50,57 @@ suite("artifact-path", () => {
       "MeterReadingShape",
       "services",
     ]);
+  });
+
+  test("maps folder segments back to artifact kinds", () => {
+    assert.strictEqual(artifactKindFromFolderName("services"), "service");
+    assert.strictEqual(
+      artifactKindFromFolderName("subscriptions"),
+      "subscription",
+    );
+    assert.strictEqual(artifactKindFromFolderName("entities"), undefined);
+  });
+
+  test("parses a service file path", () => {
+    assert.deepStrictEqual(
+      parseArtifactPath("TWLS.Demo/MeterReadingShape/services/GetReading.js"),
+      { kind: "service", name: "GetReading", extension: ".js" },
+    );
+  });
+
+  test("parses a subscription file path", () => {
+    assert.deepStrictEqual(
+      parseArtifactPath(
+        "TWLS.Demo/MeterReadingShape/subscriptions/ReadingChanged.js",
+      ),
+      { kind: "subscription", name: "ReadingChanged", extension: ".js" },
+    );
+  });
+
+  test("parses a Windows absolute path", () => {
+    assert.deepStrictEqual(
+      parseArtifactPath(
+        "C:\\ws\\TWLS.Demo\\MeterReadingShape\\services\\GetReading.js",
+      ),
+      { kind: "service", name: "GetReading", extension: ".js" },
+    );
+  });
+
+  test("rejects the legacy flat layout and unknown folders", () => {
+    assert.strictEqual(
+      parseArtifactPath("TWLS.Demo/MeterReadingShape/GetReading.js"),
+      undefined,
+    );
+    assert.strictEqual(
+      parseArtifactPath("TWLS.Demo/MeterReadingShape/scripts/GetReading.js"),
+      undefined,
+    );
+  });
+
+  test("rejects files without an extension", () => {
+    assert.strictEqual(
+      parseArtifactPath("TWLS.Demo/MeterReadingShape/services/GetReading"),
+      undefined,
+    );
   });
 });
