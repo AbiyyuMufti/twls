@@ -415,6 +415,25 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   }
 
   private async applyStashEntry(entry: StashEntry): Promise<void> {
+    await this.updateWorkingTreeGroup();
+
+    const dirtyUris = new Set(
+      this.workingTreeGroup.resourceStates.map((resourceState) =>
+        resourceState.resourceUri.toString(),
+      ),
+    );
+    const conflicting = entry.files.filter((file) =>
+      dirtyUris.has(
+        vscode.Uri.joinPath(this.rootUri, ...file.relativePath).toString(),
+      ),
+    );
+
+    if (conflicting.length > 0) {
+      throw new Error(
+        `Cannot apply stash: ${conflicting.length} file(s) have uncommitted changes. Push, discard or stash them first.`,
+      );
+    }
+
     for (const file of entry.files) {
       const localUri = vscode.Uri.joinPath(this.rootUri, ...file.relativePath);
 
