@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import {
   StashEntry,
   stashEntrySchema,
+  stashIdSchema,
   sortStashEntriesNewestFirst,
 } from "./stash";
 
@@ -19,14 +20,29 @@ export class StashStore {
     return vscode.Uri.joinPath(this.rootUri, ".twls", StashStore.FOLDER_NAME);
   }
 
-  private entryUri(id: string): vscode.Uri {
+  /**
+   * Resolves the on-disk URI for a stash id, or `undefined` when the id is not
+   * a valid stash id. Ids are interpolated into a path, so an unvalidated id
+   * like `../../thingworx` would otherwise escape `.twls/stash`.
+   */
+  private entryUri(id: string): vscode.Uri | undefined {
+    if (!stashIdSchema.safeParse(id).success) {
+      return undefined;
+    }
+
     return vscode.Uri.joinPath(this.folderUri, `${id}.json`);
   }
 
   async save(entry: StashEntry): Promise<void> {
     const json = stashEntrySchema.parse(entry);
+    const uri = this.entryUri(json.id);
+
+    if (!uri) {
+      throw new Error(`Invalid stash id: ${json.id}`);
+    }
+
     const content = new TextEncoder().encode(JSON.stringify(json, null, 2));
-    await vscode.workspace.fs.writeFile(this.entryUri(entry.id), content);
+    await vscode.workspace.fs.writeFile(uri, content);
   }
 
   /** Lists all stash entries for this repository, newest first. */
@@ -62,10 +78,16 @@ export class StashStore {
    * cannot break listing or "apply/pop latest".
    */
   async read(id: string): Promise<StashEntry | undefined> {
+    const uri = this.entryUri(id);
+
+    if (!uri) {
+      return undefined;
+    }
+
     let content: Uint8Array;
 
     try {
-      content = await vscode.workspace.fs.readFile(this.entryUri(id));
+      content = await vscode.workspace.fs.readFile(uri);
     } catch (error) {
       if (error instanceof vscode.FileSystemError) {
         return undefined;
@@ -86,8 +108,14 @@ export class StashStore {
   }
 
   async delete(id: string): Promise<void> {
+    const uri = this.entryUri(id);
+
+    if (!uri) {
+      return;
+    }
+
     try {
-      await vscode.workspace.fs.delete(this.entryUri(id));
+      await vscode.workspace.fs.delete(uri);
     } catch (error) {
       if (!(error instanceof vscode.FileSystemError)) {
         throw error;
