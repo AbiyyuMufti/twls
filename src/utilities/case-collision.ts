@@ -5,6 +5,13 @@
  * `insertFGFromSAP`.
  */
 
+import { pickPreferredName } from "./case-style";
+
+export interface CaseDedupeResult<T> {
+  kept: T[];
+  dropped: T[];
+}
+
 interface NamedArtifact {
   name: string;
   extension: string;
@@ -127,4 +134,44 @@ export function groupByCaseInsensitiveName<T extends { name: string }>(
   }
 
   return collisions;
+}
+
+/**
+ * Filters artifacts down to one per case-insensitive name, keeping the
+ * team's preferred (PascalCase) variant and dropping the rest before they
+ * ever reach disk — so a collision can no longer occur, race or no race.
+ * Non-colliding artifacts pass through unchanged.
+ */
+export function dedupeByPreferredCase<T extends { name: string }>(
+  artifacts: readonly T[],
+): CaseDedupeResult<T> {
+  const groups = groupByCaseInsensitiveName(artifacts);
+  const droppedSet = new Set<T>();
+
+  for (const group of groups) {
+    const preferred = pickPreferredName(group.members);
+
+    if (!preferred) {
+      continue; // groups are always non-empty; defensive only
+    }
+
+    for (const member of group.members) {
+      if (member !== preferred) {
+        droppedSet.add(member);
+      }
+    }
+  }
+
+  const kept: T[] = [];
+  const dropped: T[] = [];
+
+  for (const artifact of artifacts) {
+    if (droppedSet.has(artifact)) {
+      dropped.push(artifact);
+    } else {
+      kept.push(artifact);
+    }
+  }
+
+  return { kept, dropped };
 }

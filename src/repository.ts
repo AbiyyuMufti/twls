@@ -21,7 +21,6 @@ import {
   searchEntityMeta,
   searchProjectMeta,
   updateEntity,
-  warnEntityServiceCaseCollisions,
   writeEntityService,
   writeEntityServiceDefinitions,
   writeEntityServices,
@@ -177,12 +176,6 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     await repo.updateWorkingTreeGroup();
     await repo.writeProjectNonDirtyServices(entities);
     await repo.writeProjectNonDirtySubscriptions(entities);
-    warnEntityServiceCaseCollisions(rootUri, repo.entity).catch(
-      (error: unknown) => {
-        logger.error("Case-collision check failed", error);
-        vscode.window.showWarningMessage("Case-collision check failed");
-      },
-    );
     return repo;
   }
 
@@ -228,13 +221,6 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     const numSubscriptionsPulled = await writeEntitySubscriptions(
       this.rootUri,
       newEntity,
-    );
-
-    warnEntityServiceCaseCollisions(this.rootUri, newEntity).catch(
-      (error: unknown) => {
-        logger.error("Case-collision check failed", error);
-        vscode.window.showWarningMessage("Case-collision check failed");
-      },
     );
 
     return {
