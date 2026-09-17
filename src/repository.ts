@@ -27,7 +27,11 @@ import {
   writeServices,
   writeSubscriptions,
 } from "./thingworx";
-import { ArtifactKind, buildArtifactRelativePath } from "./artifact-path";
+import {
+  ArtifactKind,
+  buildArtifactRelativePath,
+  resolveArtifact,
+} from "./artifact-path";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced";
@@ -313,40 +317,31 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
    * current remote snapshot.
    */
   async discard(localUri: vscode.Uri): Promise<void> {
-    const [kind, artifact] = this.getArtifactFromLocalUri(localUri);
-
-    if (kind === "service") {
-      await writeEntityService(this.rootUri, this._entity.meta, artifact);
-    } else {
-      await writeEntitySubscription(this.rootUri, this._entity.meta, artifact);
-    }
-  }
-
-  private getArtifactFromLocalUri(
-    localUri: vscode.Uri,
-  ): readonly ["service", Service] | readonly ["subscription", Subscription] {
-    const filename = path.basename(localUri.fsPath);
-
-    const service = this._entity
-      .getServices()
-      .find((service) => service.name + service.extension === filename);
-    if (service) {
-      return ["service", service] as const;
-    }
-
-    const subscription = this._entity
-      .getSubscriptions()
-      .find(
-        (subscription) =>
-          subscription.name + subscription.extension === filename,
-      );
-    if (subscription) {
-      return ["subscription", subscription] as const;
-    }
-
-    throw new Error(
-      `${filename} does not exist on entity ${this._entity.meta.name}`,
+    const resolved = resolveArtifact(
+      localUri.fsPath,
+      this._entity.getServices(),
+      this._entity.getSubscriptions(),
     );
+
+    if (!resolved) {
+      throw new Error(
+        `${path.basename(localUri.fsPath)} does not exist on entity ${this._entity.meta.name}`,
+      );
+    }
+
+    if (resolved.kind === "service") {
+      await writeEntityService(
+        this.rootUri,
+        this._entity.meta,
+        resolved.artifact,
+      );
+    } else {
+      await writeEntitySubscription(
+        this.rootUri,
+        this._entity.meta,
+        resolved.artifact,
+      );
+    }
   }
 
   private setEntity(entity: Entity): void {

@@ -1,4 +1,5 @@
 import * as assert from "node:assert";
+import type { Service, Subscription } from "../../entity/entity";
 import { ThingShape } from "../../entity/thing-shape";
 import {
   artifactKindFromFolderName,
@@ -6,6 +7,7 @@ import {
   buildArtifactFolderRelativePath,
   buildEntityArtifactRelativePaths,
   parseArtifactPath,
+  resolveArtifact,
 } from "../../artifact-path";
 import {
   thingShapeMeta,
@@ -118,5 +120,38 @@ suite("artifact-path", () => {
       ["TWLS.Demo", "MeterReadingShape", "services", "ResetReading.js"],
       ["TWLS.Demo", "MeterReadingShape", "subscriptions", "ReadingChanged.js"],
     ]);
+  });
+
+  test("resolves a colliding name by the artifact folder, not filename", () => {
+    const services: Service[] = [
+      { name: "Foo", source: "service source", extension: ".js" },
+    ];
+    const subscriptions: Subscription[] = [
+      { name: "Foo", source: "subscription source", extension: ".js" },
+    ];
+
+    assert.deepStrictEqual(
+      resolveArtifact("TWLS.Demo/Entity/services/Foo.js", services, subscriptions),
+      { kind: "service", artifact: services[0] },
+    );
+    assert.deepStrictEqual(
+      resolveArtifact(
+        "TWLS.Demo/Entity/subscriptions/Foo.js",
+        services,
+        subscriptions,
+      ),
+      { kind: "subscription", artifact: subscriptions[0] },
+    );
+  });
+
+  test("returns undefined when the artifact or folder is unknown", () => {
+    assert.strictEqual(
+      resolveArtifact("TWLS.Demo/Entity/services/Missing.js", [], []),
+      undefined,
+    );
+    assert.strictEqual(
+      resolveArtifact("TWLS.Demo/Entity/scripts/Foo.js", [], []),
+      undefined,
+    );
   });
 });

@@ -1,5 +1,10 @@
 import path from "node:path";
-import type { Entity, EntityMeta } from "./entity/entity";
+import type {
+  Entity,
+  EntityMeta,
+  Service,
+  Subscription,
+} from "./entity/entity";
 
 export type ArtifactKind = "service" | "subscription";
 
@@ -108,4 +113,42 @@ export function buildEntityArtifactRelativePaths(entity: Entity): string[][] {
     );
 
   return [...services, ...subscriptions];
+}
+
+/** An artifact located from a file path: its kind plus the matching artifact. */
+export type ResolvedArtifact =
+  | { kind: "service"; artifact: Service }
+  | { kind: "subscription"; artifact: Subscription };
+
+/**
+ * Resolves the artifact a file path points at: the kind comes from the
+ * `services`/`subscriptions` folder, then name and extension are matched within
+ * that kind only. Returns `undefined` when the path isn't an artifact file or
+ * the matching artifact doesn't exist.
+ */
+export function resolveArtifact(
+  filePath: string,
+  services: Service[],
+  subscriptions: Subscription[],
+): ResolvedArtifact | undefined {
+  const parsed = parseArtifactPath(filePath);
+
+  if (!parsed) {
+    return undefined;
+  }
+
+  if (parsed.kind === "service") {
+    const artifact = services.find(
+      (service) =>
+        service.name === parsed.name && service.extension === parsed.extension,
+    );
+    return artifact ? { kind: "service", artifact } : undefined;
+  }
+
+  const artifact = subscriptions.find(
+    (subscription) =>
+      subscription.name === parsed.name &&
+      subscription.extension === parsed.extension,
+  );
+  return artifact ? { kind: "subscription", artifact } : undefined;
 }
