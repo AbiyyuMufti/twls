@@ -1,5 +1,9 @@
 import assert from "node:assert";
-import { createStashEntry, sortStashEntriesNewestFirst } from "../../stash";
+import {
+  createStashEntry,
+  sortStashEntriesNewestFirst,
+  stashEntrySchema,
+} from "../../stash";
 
 suite("stash", () => {
   test("createStashEntry captures entity name and files", () => {
@@ -27,5 +31,29 @@ suite("stash", () => {
       newer,
       older,
     ]);
+  });
+
+  test("stashEntrySchema accepts a valid entry", () => {
+    const entry = createStashEntry("MyEntity", [
+      {
+        relativePath: ["P", "E", "services", "Foo.js"],
+        kind: "service",
+        deleted: false,
+        content: "x",
+      },
+    ]);
+
+    assert.strictEqual(stashEntrySchema.safeParse(entry).success, true);
+  });
+
+  test("stashEntrySchema rejects a malformed entry", () => {
+    const malformed = {
+      id: "1",
+      entityName: "MyEntity",
+      createdAt: "now",
+      files: [{ relativePath: "not-an-array", kind: "widget" }],
+    };
+
+    assert.strictEqual(stashEntrySchema.safeParse(malformed).success, false);
   });
 });

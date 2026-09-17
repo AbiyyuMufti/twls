@@ -1,5 +1,9 @@
 import * as vscode from "vscode";
-import { StashEntry, sortStashEntriesNewestFirst } from "./stash";
+import {
+  StashEntry,
+  stashEntrySchema,
+  sortStashEntriesNewestFirst,
+} from "./stash";
 
 /**
  * On-disk stash storage for one repository. Entries live as
@@ -20,7 +24,8 @@ export class StashStore {
   }
 
   async save(entry: StashEntry): Promise<void> {
-    const content = new TextEncoder().encode(JSON.stringify(entry, null, 2));
+    const json = stashEntrySchema.parse(entry);
+    const content = new TextEncoder().encode(JSON.stringify(json, null, 2));
     await vscode.workspace.fs.writeFile(this.entryUri(entry.id), content);
   }
 
@@ -51,16 +56,33 @@ export class StashStore {
     );
   }
 
+  /**
+   * Reads one stash entry. Returns `undefined` when the file is missing or its
+   * contents are not valid JSON / a valid entry, so a single corrupted file
+   * cannot break listing or "apply/pop latest".
+   */
   async read(id: string): Promise<StashEntry | undefined> {
+    let content: Uint8Array;
+
     try {
-      const content = await vscode.workspace.fs.readFile(this.entryUri(id));
-      return JSON.parse(new TextDecoder().decode(content)) as StashEntry;
+      content = await vscode.workspace.fs.readFile(this.entryUri(id));
     } catch (error) {
       if (error instanceof vscode.FileSystemError) {
         return undefined;
       }
       throw error;
     }
+
+    let json: unknown;
+
+    try {
+      json = JSON.parse(new TextDecoder().decode(content));
+    } catch {
+      return undefined;
+    }
+
+    const parsed = stashEntrySchema.safeParse(json);
+    return parsed.success ? parsed.data : undefined;
   }
 
   async delete(id: string): Promise<void> {

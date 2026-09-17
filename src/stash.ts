@@ -1,21 +1,31 @@
-import type { ArtifactKind } from "./artifact-path";
+import z from "zod";
 
-/** One artifact captured by a stash entry: enough to restore or re-delete it later. */
-export interface StashedFile {
-  relativePath: string[];
-  kind: ArtifactKind;
+/**
+ * One artifact captured by a stash entry: enough to restore or re-delete it
+ * later.
+ */
+const stashedFileSchema = z.object({
+  relativePath: z.array(z.string()),
+  kind: z.enum(["service", "subscription"]),
   /** True when the artifact was locally deleted (vs. locally edited). */
-  deleted: boolean;
+  deleted: z.boolean(),
   /** Local file content at stash time. Empty string when `deleted` is true. */
-  content: string;
-}
+  content: z.string(),
+});
 
-export interface StashEntry {
-  id: string;
-  entityName: string;
-  createdAt: string;
-  files: StashedFile[];
-}
+/**
+ * Validates the on-disk shape of a stash entry. Used when reading so a
+ * corrupted `.twls/stash/<id>.json` is skipped instead of aborting the list.
+ */
+export const stashEntrySchema = z.object({
+  id: z.string(),
+  entityName: z.string(),
+  createdAt: z.string(),
+  files: z.array(stashedFileSchema),
+});
+
+export type StashedFile = z.infer<typeof stashedFileSchema>;
+export type StashEntry = z.infer<typeof stashEntrySchema>;
 
 let sequence = 0;
 
