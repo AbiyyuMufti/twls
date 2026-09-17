@@ -95,6 +95,11 @@ export class ThingShape implements Entity {
     return this.source.serviceDefinitions[name];
   }
 
+  /** ThingShape services are always Script-backed; there is no SQL query config. */
+  getServiceQueryConfig(): { timeout: number; maxItems: number } | undefined {
+    return undefined;
+  }
+
   /** Replaces the code of an existing service in the in-memory source. */
   updateService(name: string, source: string): void {
     const implementation = this.source.serviceImplementations[name];
@@ -132,5 +137,43 @@ export class ThingShape implements Entity {
     }
 
     row.code = source;
+  }
+
+  /** Replaces an existing service's definition. queryConfig is accepted for interface symmetry but ignored — ThingShape has no SQL services. */
+  updateServiceDefinition(name: string, definition: ServiceDefinition): void {
+    if (!this.source.serviceDefinitions[name]) {
+      throw new Error(
+        `Service ${name} does not exist on entity ${this.source.name}`,
+      );
+    }
+
+    this.source.serviceDefinitions[name] = definition;
+  }
+
+  createService(
+    name: string,
+    definition: ServiceDefinition,
+    source: string,
+    extension: ".js" | ".sql",
+  ): void {
+    if (
+      this.source.serviceDefinitions[name] ||
+      this.source.serviceImplementations[name]
+    ) {
+      throw new Error(
+        `Service ${name} already exists on entity ${this.source.name}`,
+      );
+    }
+
+    if (extension !== ".js") {
+      throw new Error("ThingShape services must be JS-backed.");
+    }
+
+    this.source.serviceDefinitions[name] = definition;
+    this.source.serviceImplementations[name] = {
+      configurationTables: {
+        Script: { rows: [{ code: source }] },
+      },
+    };
   }
 }

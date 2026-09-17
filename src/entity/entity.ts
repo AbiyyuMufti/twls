@@ -71,6 +71,13 @@ export function getSubscriptionExtensionPattern(): string {
   return `**/*.{${s}}`;
 }
 
+export function getWatchedFilePattern(): string {
+  const serviceExtensions = localServiceSchema.shape.extension.options.map(
+    (ext) => ext.slice(1),
+  );
+  return `**/*.{${[...serviceExtensions, "yaml"].join(",")}}`;
+}
+
 /**
  * Uniform view over a fetched ThingWorx entity: its identity, the raw JSON it
  * was parsed from, and its services and subscriptions. `getSource()` returns
@@ -83,8 +90,24 @@ export interface Entity {
   getServices(): Service[];
   getSubscriptions(): Subscription[];
   getServiceDefinition(name: string): ServiceDefinition | undefined;
+  getServiceQueryConfig(
+    name: string,
+  ): { timeout: number; maxItems: number } | undefined;
   updateService(name: string, source: string): void;
   updateSubscription(name: string, source: string): void;
+  updateServiceDefinition(
+    name: string,
+    definition: ServiceDefinition,
+    queryConfig?: { timeout: number; maxItems: number },
+  ): void;
+
+  createService(
+    name: string,
+    definition: ServiceDefinition,
+    source: string,
+    extension: ".js" | ".sql",
+    queryConfig?: { timeout: number; maxItems: number },
+  ): void;
 }
 
 /** Constructs the right entity class for each {@link EntityMeta.type}. */

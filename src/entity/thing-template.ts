@@ -126,6 +126,20 @@ export class ThingTemplate implements Entity {
     return subscriptions;
   }
 
+  /** Returns the Query row's timeout/maxItems for a SQL-backed service, or undefined for JS services or if those fields are missing. */
+  getServiceQueryConfig(
+    name: string,
+  ): { timeout: number; maxItems: number } | undefined {
+    const implementation = this.source.thingShape.serviceImplementations[name];
+    const row = implementation?.configurationTables.Query?.rows[0];
+
+    if (!row || row.timeout === undefined || row.maxItems === undefined) {
+      return undefined;
+    }
+
+    return { timeout: row.timeout, maxItems: row.maxItems };
+  }
+
   /** Looks up a service's parameter list and result type by name. */
   getServiceDefinition(name: string): ServiceDefinition | undefined {
     return this.source.thingShape.serviceDefinitions[name];
@@ -173,5 +187,69 @@ export class ThingTemplate implements Entity {
     }
 
     row.code = source;
+  }
+
+  /** Replaces an existing service's definition, and — when provided — its SQL query config. */
+  updateServiceDefinition(
+    name: string,
+    definition: ServiceDefinition,
+    queryConfig?: { timeout: number; maxItems: number },
+  ): void {
+    if (!this.source.thingShape.serviceDefinitions[name]) {
+      throw new Error(
+        `Service ${name} does not exist on entity ${this.source.name}`,
+      );
+    }
+
+    this.source.thingShape.serviceDefinitions[name] = definition;
+
+    if (queryConfig) {
+      const implementation =
+        this.source.thingShape.serviceImplementations[name];
+      const row = implementation?.configurationTables.Query?.rows[0];
+
+      if (row) {
+        row.timeout = queryConfig.timeout;
+        row.maxItems = queryConfig.maxItems;
+      }
+    }
+  }
+
+  createService(
+    name: string,
+    definition: ServiceDefinition,
+    source: string,
+    extension: ".js" | ".sql",
+    queryConfig?: { timeout: number; maxItems: number },
+  ): void {
+    if (
+      this.source.thingShape.serviceDefinitions[name] ||
+      this.source.thingShape.serviceImplementations[name]
+    ) {
+      throw new Error(
+        `Service ${name} already exists on entity ${this.source.name}`,
+      );
+    }
+
+    this.source.thingShape.serviceDefinitions[name] = definition;
+
+    const configurationTables =
+      extension === ".sql"
+        ? {
+            Query: {
+              rows: [
+                {
+                  sql: source,
+                  timeout: queryConfig?.timeout ?? 60,
+                  maxItems: queryConfig?.maxItems ?? 0,
+                },
+              ],
+            },
+          }
+        : { Script: { rows: [{ code: source }] } };
+
+    this.source.thingShape.serviceImplementations[name] = {
+      configurationTables,
+    };
   }
 }
