@@ -21,6 +21,7 @@ import {
   searchEntityMeta,
   searchProjectMeta,
   updateEntity,
+  warnEntityServiceCaseCollisions,
   writeEntityService,
   writeEntityServiceDefinitions,
   writeEntityServices,
@@ -42,6 +43,7 @@ import {
   buildServiceDefinitionTemplate,
   collapseServiceDefinition,
 } from "./entity/zod-service-definition";
+import { logger } from "./logger";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced" | "new";
@@ -175,6 +177,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     await repo.updateWorkingTreeGroup();
     await repo.writeProjectNonDirtyServices(entities);
     await repo.writeProjectNonDirtySubscriptions(entities);
+    warnEntityServiceCaseCollisions(rootUri, repo.entity).catch(
+      (error: unknown) => {
+        logger.error("Case-collision check failed", error);
+        vscode.window.showWarningMessage("Case-collision check failed");
+      },
+    );
     return repo;
   }
 
@@ -220,6 +228,13 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     const numSubscriptionsPulled = await writeEntitySubscriptions(
       this.rootUri,
       newEntity,
+    );
+
+    warnEntityServiceCaseCollisions(this.rootUri, newEntity).catch(
+      (error: unknown) => {
+        logger.error("Case-collision check failed", error);
+        vscode.window.showWarningMessage("Case-collision check failed");
+      },
     );
 
     return {
@@ -510,6 +525,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     await this.updateWorkingTreeGroup();
     await this.writeNonDirtyServices();
     await this.writeNonDirtySubscriptions();
+    warnEntityServiceCaseCollisions(this.rootUri, entity).catch(
+      (error: unknown) => {
+        logger.error("Case-collision check failed", error);
+        vscode.window.showWarningMessage("Case-collision check failed");
+      },
+    );
 
     this.config.entityName = entityMeta.name;
     await this.config.save();

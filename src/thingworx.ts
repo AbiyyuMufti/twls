@@ -32,6 +32,7 @@ import {
   ServiceDefinition,
   serviceDefinitionAuthoringSchema,
 } from "./entity/zod-service-definition";
+import { warnCaseCollisions } from "./warn-case-collision";
 
 /**
  * ThingWorx REST client: talks to the ThingWorx server (search, fetch, push,
@@ -300,6 +301,7 @@ export async function writeServices(
   const numFulfilled = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
+
   return numFulfilled;
 }
 
@@ -347,6 +349,16 @@ export async function writeSubscriptions(
   const numFulfilled = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
+
+  void warnCaseCollisions(
+    rootUri,
+    entityMeta,
+    "subscription",
+    subscriptions.map((subscription) => ({
+      ...subscription,
+      label: "subscription",
+    })),
+  );
   return numFulfilled;
 }
 
@@ -699,4 +711,53 @@ async function thingworxFetch(
   }
 
   return;
+}
+
+/**
+ * Merged case-collision check across a service's code file and its `.yaml`
+ * definition sidecar. Call this once both have been written for an entity.
+ */
+export async function warnEntityServiceCaseCollisions(
+  rootUri: vscode.Uri,
+  entity: Entity,
+): Promise<void> {
+  const services = entity.getServices();
+
+  const codeArtifacts = services.map((service) => ({
+    name: service.name,
+    extension: service.extension,
+    source: service.source,
+    label: "code file",
+  }));
+
+  const definitionArtifacts = services.flatMap((service) => {
+    const definition = entity.getServiceDefinition(service.name);
+
+    if (!definition) {
+      return [];
+    }
+
+    const source =
+      buildDefinitionHeaderComment() +
+      yaml.dump(
+        collapseServiceDefinition(
+          definition,
+          entity.getServiceQueryConfig(service.name),
+        ),
+      );
+
+    return [
+      {
+        name: service.name,
+        extension: DEFINITION_EXTENSION,
+        source,
+        label: "definition",
+      },
+    ];
+  });
+
+  await warnCaseCollisions(rootUri, entity.meta, "service", [
+    ...codeArtifacts,
+    ...definitionArtifacts,
+  ]);
 }
