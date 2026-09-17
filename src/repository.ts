@@ -392,9 +392,16 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return files.length;
   }
 
-  /** Lists stash entries for this repository, newest first. */
+  /**
+   * Lists stash entries belonging to the active entity, newest first. Stashes
+   * are stored per workspace folder and shared across every entity the folder
+   * has been bound to, so entries for other entities are filtered out.
+   */
   async stashList(): Promise<StashEntry[]> {
-    return this.stashStore.list();
+    const entries = await this.stashStore.list();
+    return entries.filter(
+      (entry) => entry.entityName === this._entity.meta.name,
+    );
   }
 
   /**
@@ -431,10 +438,18 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     id?: string,
   ): Promise<StashEntry | undefined> {
     if (id) {
-      return this.stashStore.read(id);
+      const entry = await this.stashStore.read(id);
+
+      if (entry && entry.entityName !== this._entity.meta.name) {
+        throw new Error(
+          `Cannot apply stash: it belongs to entity ${entry.entityName}, but ${this._entity.meta.name} is active. Switch to that entity first.`,
+        );
+      }
+
+      return entry;
     }
 
-    const entries = await this.stashStore.list();
+    const entries = await this.stashList();
     return entries[0];
   }
 
