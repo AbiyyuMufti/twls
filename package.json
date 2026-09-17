@@ -74,6 +74,10 @@
       {
         "command": "twls.showOutput",
         "title": "TWLS: Show Output"
+      },
+      {
+        "command": "twls.newService",
+        "title": "TWLS: New Service"
       }
     ],
     "menus": {

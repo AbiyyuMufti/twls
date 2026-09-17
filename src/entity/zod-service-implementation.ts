@@ -18,6 +18,8 @@ export const queryConfigurationTableSchema = z.looseObject({
       .array(
         z.looseObject({
           sql: z.string(),
+          timeout: z.number().optional(),
+          maxItems: z.number().optional(),
         }),
       )
       .length(1),
