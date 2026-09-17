@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { EntityMeta } from "./entity/entity";
+import type { Entity, EntityMeta } from "./entity/entity";
 
 export type ArtifactKind = "service" | "subscription";
 
@@ -78,4 +78,34 @@ export function parseArtifactPath(
     name: path.basename(filename, extension),
     extension,
   };
+}
+
+/**
+ * Relative path segments for every artifact of an entity: services first, then
+ * subscriptions. Used to enumerate the virtual remote documents to refresh.
+ */
+export function buildEntityArtifactRelativePaths(entity: Entity): string[][] {
+  const services = entity
+    .getServices()
+    .map((service) =>
+      buildArtifactRelativePath(
+        entity.meta,
+        "service",
+        service.name,
+        service.extension,
+      ),
+    );
+
+  const subscriptions = entity
+    .getSubscriptions()
+    .map((subscription) =>
+      buildArtifactRelativePath(
+        entity.meta,
+        "subscription",
+        subscription.name,
+        subscription.extension,
+      ),
+    );
+
+  return [...services, ...subscriptions];
 }

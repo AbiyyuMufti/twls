@@ -1,6 +1,7 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import { Base } from "./base";
+import { buildEntityArtifactRelativePaths } from "./artifact-path";
 import { Config } from "./config";
 import { Entity } from "./entity/entity";
 
@@ -34,7 +35,7 @@ export class RemoteTextDocumentContentProvider
 
   /**
    * Persists a fresh entity snapshot and notifies VS Code that every one of its
-   * service documents has changed so open diffs refresh.
+   * service and subscription documents has changed so open diffs refresh.
    */
   updated(config: Config, newEntity: Entity): void {
     const entityUri = vscode.Uri.parse(
@@ -46,13 +47,11 @@ export class RemoteTextDocumentContentProvider
       console.error(error);
     });
 
-    newEntity.getServices().forEach((service) => {
-      const serviceUri = vscode.Uri.joinPath(
-        entityUri,
-        service.name + service.extension,
+    for (const segments of buildEntityArtifactRelativePaths(newEntity)) {
+      this._onDidChange.fire(
+        entityUri.with({ path: `/${segments.join("/")}` }),
       );
-      this._onDidChange.fire(serviceUri);
-    });
+    }
   }
 
   /**

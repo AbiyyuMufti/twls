@@ -1,10 +1,16 @@
 import * as assert from "node:assert";
+import { ThingShape } from "../../entity/thing-shape";
 import {
   artifactKindFromFolderName,
   buildArtifactRelativePath,
   buildArtifactFolderRelativePath,
+  buildEntityArtifactRelativePaths,
   parseArtifactPath,
 } from "../../artifact-path";
+import {
+  thingShapeMeta,
+  thingShapeSource,
+} from "../fixtures/entity-sources";
 
 suite("artifact-path", () => {
   test("builds a service path under services/", () => {
@@ -102,5 +108,15 @@ suite("artifact-path", () => {
       parseArtifactPath("TWLS.Demo/MeterReadingShape/services/GetReading"),
       undefined,
     );
+  });
+
+  test("enumerates an entity's services then its subscriptions", () => {
+    const entity = new ThingShape(thingShapeMeta, thingShapeSource);
+
+    assert.deepStrictEqual(buildEntityArtifactRelativePaths(entity), [
+      ["TWLS.Demo", "MeterReadingShape", "services", "GetReading.js"],
+      ["TWLS.Demo", "MeterReadingShape", "services", "ResetReading.js"],
+      ["TWLS.Demo", "MeterReadingShape", "subscriptions", "ReadingChanged.js"],
+    ]);
   });
 });
