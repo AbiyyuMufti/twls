@@ -6,9 +6,11 @@ import { Model } from "./model";
 import { Repository } from "./repository";
 import {
   fetchProjectEntity,
+} from "./core/thingworx/entity";
+import {
   showEntityMetaPick,
   showProjectMetaPick,
-} from "./thingworx";
+} from "./features/pickers/quick-pick";
 import { EntityMeta } from "./entity/entity";
 
 /**

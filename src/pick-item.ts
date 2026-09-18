@@ -1,5 +1,5 @@
 import type { EntityMeta } from "./entity/entity";
-import type { ProjectMeta } from "./thingworx";
+import type { ProjectMeta } from "./core/entity/project";
 
 /** A QuickPick item that carries an entity/project's metadata for later use. */
 export type MetaPickItem<TMeta> = TMeta & {

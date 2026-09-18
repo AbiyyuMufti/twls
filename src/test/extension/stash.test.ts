@@ -9,7 +9,10 @@ import { ThingShape } from "../../entity/thing-shape";
 import { Repository } from "../../repository";
 import { createStashEntry } from "../../features/stash/model";
 import { StashStore } from "../../features/stash/store";
-import { writeEntityServices, writeEntitySubscriptions } from "../../thingworx";
+import {
+  writeEntityServices,
+  writeEntitySubscriptions,
+} from "../../features/sync/storage";
 import {
   getReadingCode,
   thingShapeMeta,

@@ -14,21 +14,24 @@ import {
 import {
   fetchEntity,
   fetchProjectEntity,
-  ProjectMeta,
+  updateEntity,
+} from "./core/thingworx/entity";
+import { ProjectMeta } from "./core/entity/project";
+import { searchEntityMeta, searchProjectMeta } from "./core/thingworx/search";
+import {
   readEntityServiceDefinition,
+  writeEntityServiceDefinitions,
+} from "./features/service-definitions/storage";
+import {
   readEntityServices,
   readEntitySubscriptions,
-  searchEntityMeta,
-  searchProjectMeta,
-  updateEntity,
   writeEntityService,
-  writeEntityServiceDefinitions,
   writeEntityServices,
   writeEntitySubscription,
   writeEntitySubscriptions,
   writeServices,
   writeSubscriptions,
-} from "./thingworx";
+} from "./features/sync/storage";
 import {
   ArtifactKind,
   buildArtifactRelativePath,
