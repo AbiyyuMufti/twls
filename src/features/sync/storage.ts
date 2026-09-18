@@ -12,8 +12,8 @@ import {
   buildArtifactFolderRelativePath,
   buildArtifactRelativePath,
 } from "../../utilities/artifact-path";
-import { warnDroppedCaseCollisions } from "../../warn-case-collision";
-import { dedupeByPreferredCase } from "../../utilities/case-collision";
+import { warnDroppedCaseCollisions } from "../case-collision/warn";
+import { dedupeByPreferredCase } from "../case-collision/detect";
 export async function writeServices(
   rootUri: vscode.Uri,
   entityMeta: EntityMeta,

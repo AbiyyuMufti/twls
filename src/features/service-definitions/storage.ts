@@ -9,8 +9,8 @@ import {
 import { collapseServiceDefinition } from "./collapse";
 import { expandServiceDefinition } from "./expand";
 import { buildDefinitionHeaderComment } from "./templates";
-import { warnDroppedCaseCollisions } from "../../warn-case-collision";
-import { dedupeByPreferredCase } from "../../utilities/case-collision";
+import { warnDroppedCaseCollisions } from "../case-collision/warn";
+import { dedupeByPreferredCase } from "../case-collision/detect";
 const DEFINITION_EXTENSION = ".yaml";
 
 export type QueryConfig = { timeout: number; maxItems: number };
