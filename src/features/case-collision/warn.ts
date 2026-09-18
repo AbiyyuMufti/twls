@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../../logger";
-import { EntityMeta } from "../../entity/entity";
+import { EntityMeta } from "../../core/entity/entity";
 
 export interface DroppedCaseArtifact {
   name: string;

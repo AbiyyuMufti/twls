@@ -7,11 +7,11 @@ import {
   localServiceSchema,
   Subscription,
   localSubscriptionSchema,
-} from "../../entity/entity";
+} from "../../core/entity/entity";
 import {
   buildArtifactFolderRelativePath,
   buildArtifactRelativePath,
-} from "../../utilities/artifact-path";
+} from "../../core/utilities/artifact-path";
 import { warnDroppedCaseCollisions } from "../case-collision/warn";
 import { dedupeByPreferredCase } from "../case-collision/detect";
 export async function writeServices(

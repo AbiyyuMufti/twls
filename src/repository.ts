@@ -2,14 +2,14 @@ import path from "node:path";
 import * as vscode from "vscode";
 import { Config } from "./config";
 import { REMOTE_SCHEME } from "./remote";
-import { normalizeEol } from "./text";
+import { normalizeEol } from "./core/utilities/text";
 import {
   Entity,
   EntityMeta,
   getWatchedFilePattern,
   Service,
   Subscription,
-} from "./entity/entity";
+} from "./core/entity/entity";
 
 import {
   fetchEntity,
@@ -38,7 +38,7 @@ import {
   ResolvedArtifact,
   resolveArtifact,
   buildArtifactFolderRelativePath,
-} from "./utilities/artifact-path";
+} from "./core/utilities/artifact-path";
 import { createStashEntry, StashedFile, StashEntry } from "./features/stash/model";
 import { StashStore } from "./features/stash/store";
 import yaml from "js-yaml";

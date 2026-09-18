@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import yaml from "js-yaml";
-import { EntityMeta } from "../../entity/entity";
-import { buildArtifactRelativePath } from "../../utilities/artifact-path";
+import { EntityMeta } from "../../core/entity/entity";
+import { buildArtifactRelativePath } from "../../core/utilities/artifact-path";
 import {
   ServiceDefinition,
   serviceDefinitionAuthoringSchema,

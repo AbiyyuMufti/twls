@@ -1,4 +1,4 @@
-import type { EntityMeta } from "../../entity/entity";
+import type { EntityMeta } from "../../core/entity/entity";
 
 export const thingShapeMeta: EntityMeta = {
   name: "MeterReadingShape",

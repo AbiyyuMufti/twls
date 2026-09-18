@@ -1,5 +1,5 @@
 import z from "zod";
-import { scriptServiceImplementationSchema } from "./zod-service-implementation";
+import { scriptServiceImplementationSchema } from "./service-implementation";
 
 export const eventSchema = z.looseObject({
   sourceType: z.string(),

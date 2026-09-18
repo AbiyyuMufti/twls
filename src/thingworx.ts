@@ -1,5 +1,5 @@
 import { Config } from "./config";
-import { EntityMeta } from "./entity/entity";
+import { EntityMeta } from "./core/entity/entity";
 import {
   ThingSearchRow,
   thingSearchResponseSchema,

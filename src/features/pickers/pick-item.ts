@@ -1,4 +1,4 @@
-import type { EntityMeta } from "../../entity/entity";
+import type { EntityMeta } from "../../core/entity/entity";
 import type { ProjectMeta } from "../../core/entity/project";
 
 /** A QuickPick item that carries an entity/project's metadata for later use. */

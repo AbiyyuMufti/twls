@@ -2,7 +2,7 @@ import * as assert from "node:assert";
 import type { ProjectMeta } from "../../core/entity/project";
 
 import { buildEntityPickItem, buildProjectPickItem } from "../../features/pickers/pick-item";
-import { EntityMeta } from "../../entity/entity";
+import { EntityMeta } from "../../core/entity/entity";
 
 const entityMeta: EntityMeta = {
   name: "MeterReadingShape",

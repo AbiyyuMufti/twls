@@ -1,6 +1,6 @@
 import * as assert from "node:assert";
-import type { Service, Subscription } from "../../entity/entity";
-import { ThingShape } from "../../entity/thing-shape";
+import type { Service, Subscription } from "../../core/entity/entity";
+import { ThingShape } from "../../core/entity/thing-shape";
 import {
   artifactKindFromFolderName,
   buildArtifactRelativePath,
@@ -8,7 +8,7 @@ import {
   buildEntityArtifactRelativePaths,
   parseArtifactPath,
   resolveArtifact,
-} from "../../utilities/artifact-path";
+} from "../../core/utilities/artifact-path";
 import { thingShapeMeta, thingShapeSource } from "../fixtures/entity-sources";
 
 suite("artifact-path", () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert";
-import { ThingShape } from "../../entity/thing-shape";
-import { ThingTemplate } from "../../entity/thing-template";
-import type { EntityMeta } from "../../entity/entity";
+import { ThingShape } from "../../core/entity/thing-shape";
+import { ThingTemplate } from "../../core/entity/thing-template";
+import type { EntityMeta } from "../../core/entity/entity";
 import {
   thingShapeWithServiceDefinition,
   thingTemplateWithServiceDefinitions,

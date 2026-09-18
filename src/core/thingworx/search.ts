@@ -1,6 +1,6 @@
 import z from "zod";
 import { Config } from "../../config";
-import { EntityMeta, entityMetaSchema } from "../../entity/entity";
+import { EntityMeta, entityMetaSchema } from "../entity/entity";
 import { ProjectMeta, projectMetaSchema } from "../entity/project";
 import { thingworxFetch } from "./client";
 /**

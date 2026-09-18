@@ -1,5 +1,5 @@
 import { Config } from "../../config";
-import { Entity, EntityMeta, entityMap } from "../../entity/entity";
+import { Entity, EntityMeta, entityMap } from "../entity/entity";
 import { ProjectMeta } from "../entity/project";
 import { searchEntityMeta } from "./search";
 import { thingworxFetch } from "./client";

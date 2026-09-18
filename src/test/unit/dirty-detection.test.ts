@@ -1,5 +1,5 @@
 import * as assert from "node:assert";
-import { normalizeEol } from "../../text";
+import { normalizeEol } from "../../core/utilities/text";
 
 suite("dirty-detection", () => {
   test("treats a CRLF local source as equal to an LF server source", () => {

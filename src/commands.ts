@@ -11,7 +11,7 @@ import {
   showEntityMetaPick,
   showProjectMetaPick,
 } from "./features/pickers/quick-pick";
-import { EntityMeta } from "./entity/entity";
+import { EntityMeta } from "./core/entity/entity";
 
 /**
  * Registers all `twls.*` VS Code commands and wires them to the shared
