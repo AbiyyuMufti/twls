@@ -1,14 +1,14 @@
 import * as vscode from "vscode";
-import { logger } from "./logger";
-import { Model } from "./features/sync/model";
-import { Repository } from "./features/sync/repository";
-import { invokeThingService, searchThingsForEntity } from "./thingworx";
+import { logger } from "../../logger";
+import { Model } from "../sync/model";
+import { Repository } from "../sync/repository";
+import { invokeThingService, searchThingsForEntity } from "./client";
 import {
   buildServiceInvocationStub,
   formatServiceInvocationResult,
   parseServiceInvocationParams,
-} from "./service-invocation";
-import { ThingSearchRow } from "./entity/zod-thing-search";
+} from "./format";
+import { ThingSearchRow } from "./thing-search-schema";
 
 /**
  * Registers `twls.callService`: a manual, Postman-style command to invoke a

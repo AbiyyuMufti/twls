@@ -3,7 +3,7 @@ import { Commands } from "./features/sync/commands";
 import { StashCommands } from "./features/stash/commands";
 import { logger } from "./logger";
 import { Model } from "./features/sync/model";
-import { ServiceInvocationCommands } from "./service-invocation-commands";
+import { ServiceInvocationCommands } from "./features/service-invocation/commands";
 
 export function activate(context: vscode.ExtensionContext): void {
   const model = new Model(context, vscode.workspace.workspaceFolders);

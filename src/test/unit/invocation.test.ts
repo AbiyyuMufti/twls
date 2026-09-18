@@ -3,7 +3,7 @@ import {
   buildServiceInvocationStub,
   formatServiceInvocationResult,
   parseServiceInvocationParams,
-} from "../../service-invocation";
+} from "../../features/service-invocation/format";
 import type { ServiceDefinition } from "../../core/entity/service-definition-schema";
 
 suite("service-invocation", () => {
