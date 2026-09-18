@@ -1,7 +1,7 @@
 import z from "zod";
 import { ThingShape } from "./thing-shape";
 import { ThingTemplate } from "./thing-template";
-import type { ServiceDefinition } from "./zod-service-definition";
+import type { ServiceDefinition } from "../core/entity/service-definition-schema";
 
 /**
  * Generic entity domain model: identity (`EntityMeta`), the artifact shapes

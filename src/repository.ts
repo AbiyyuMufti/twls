@@ -45,8 +45,8 @@ import yaml from "js-yaml";
 import {
   buildDefinitionHeaderComment,
   buildServiceDefinitionTemplate,
-  collapseServiceDefinition,
-} from "./entity/zod-service-definition";
+} from "./features/service-definitions/templates";
+import { collapseServiceDefinition } from "./features/service-definitions/collapse";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced" | "new";

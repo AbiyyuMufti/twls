@@ -3,7 +3,7 @@ import { Entity, EntityMeta, Service, Subscription } from "./entity";
 import {
   ServiceDefinition,
   serviceDefinitionsSchema,
-} from "./zod-service-definition";
+} from "../core/entity/service-definition-schema";
 import { scriptServiceImplementationSchema } from "./zod-service-implementation";
 import { subscriptionsSchema } from "./zod-subscription";
 

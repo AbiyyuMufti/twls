@@ -1,4 +1,4 @@
-import type { ServiceDefinition } from "./entity/zod-service-definition";
+import type { ServiceDefinition } from "./core/entity/service-definition-schema";
 import type { ServiceInvocationResult } from "./thingworx";
 
 /**

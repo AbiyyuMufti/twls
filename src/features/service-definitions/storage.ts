@@ -3,12 +3,12 @@ import yaml from "js-yaml";
 import { EntityMeta } from "../../entity/entity";
 import { buildArtifactRelativePath } from "../../utilities/artifact-path";
 import {
-  buildDefinitionHeaderComment,
-  collapseServiceDefinition,
-  expandServiceDefinition,
   ServiceDefinition,
   serviceDefinitionAuthoringSchema,
-} from "../../entity/zod-service-definition";
+} from "../../core/entity/service-definition-schema";
+import { collapseServiceDefinition } from "./collapse";
+import { expandServiceDefinition } from "./expand";
+import { buildDefinitionHeaderComment } from "./templates";
 import { warnDroppedCaseCollisions } from "../../warn-case-collision";
 import { dedupeByPreferredCase } from "../../utilities/case-collision";
 const DEFINITION_EXTENSION = ".yaml";
