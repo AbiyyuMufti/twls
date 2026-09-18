@@ -1,17 +1,17 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import { Config } from "./config";
-import { logger } from "./logger";
+import { Config } from "../../config";
+import { logger } from "../../logger";
 import { Model } from "./model";
 import { Repository } from "./repository";
 import {
   fetchProjectEntity,
-} from "./core/thingworx/entity";
+} from "../../core/thingworx/entity";
 import {
   showEntityMetaPick,
   showProjectMetaPick,
-} from "./features/pickers/quick-pick";
-import { EntityMeta } from "./core/entity/entity";
+} from "../pickers/quick-pick";
+import { EntityMeta } from "../../core/entity/entity";
 
 /**
  * Registers all `twls.*` VS Code commands and wires them to the shared
@@ -58,36 +58,6 @@ export class Commands implements vscode.Disposable {
           this.run("Discard", () => this.discard(resourceState.resourceUri));
         },
       ),
-      vscode.commands.registerCommand(
-        "twls.stash",
-        (sourceControl?: vscode.SourceControl) => {
-          this.run("Stash", () => this.stash(sourceControl?.rootUri));
-        },
-      ),
-      vscode.commands.registerCommand(
-        "twls.stashList",
-        (sourceControl?: vscode.SourceControl) => {
-          this.run("Stash List", () => this.stashList(sourceControl?.rootUri));
-        },
-      ),
-      vscode.commands.registerCommand(
-        "twls.stashApply",
-        (sourceControl?: vscode.SourceControl) => {
-          this.run("Stash Apply", () =>
-            this.stashApply(sourceControl?.rootUri),
-          );
-        },
-      ),
-      vscode.commands.registerCommand(
-        "twls.stashPop",
-        (sourceControl?: vscode.SourceControl) => {
-          this.run("Stash Pop", () => this.stashPop(sourceControl?.rootUri));
-        },
-      ),
-      vscode.commands.registerCommand("twls.showOutput", () => {
-        logger.show();
-      }),
-
       vscode.commands.registerCommand(
         "twls.newService",
         (sourceControl?: vscode.SourceControl) => {
@@ -390,109 +360,6 @@ export class Commands implements vscode.Disposable {
       await repo.discard(localUri);
       this.notify(`Discarded ${filename}.`);
     }
-  }
-
-  async stash(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
-
-    if (!repo) {
-      return;
-    }
-
-    const count = await repo.stash();
-
-    if (count === 0) {
-      this.notify("Nothing to stash — working tree is clean.", "warn");
-      return;
-    }
-
-    this.notify(
-      `Stashed ${count} file(s). Working tree is clean — you can pull now.`,
-    );
-  }
-
-  async stashList(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
-
-    if (!repo) {
-      return;
-    }
-
-    const entries = await repo.stashList();
-
-    if (entries.length === 0) {
-      this.notify("No stashes for this repository.");
-      return;
-    }
-
-    const items = entries.map((entry) => ({
-      label: `${entry.entityName} — ${entry.files.length} file(s)`,
-      description: new Date(entry.createdAt).toLocaleString(),
-      id: entry.id,
-    }));
-
-    const selected = await vscode.window.showQuickPick(items, {
-      placeHolder: "Stashes",
-      ignoreFocusOut: true,
-    });
-
-    if (!selected) {
-      return;
-    }
-
-    const action = await vscode.window.showQuickPick(
-      ["Apply", "Pop (apply + remove from list)"],
-      {
-        placeHolder: "What do you want to do with this stash?",
-        ignoreFocusOut: true,
-      },
-    );
-
-    if (action === "Apply") {
-      const count = await repo.stashApply(selected.id);
-      this.notify(`Applied ${count ?? 0} file(s) from stash.`);
-    } else if (action) {
-      const count = await repo.stashPop(selected.id);
-      this.notify(`Popped ${count ?? 0} file(s) from stash.`);
-    }
-  }
-
-  async stashApply(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
-
-    if (!repo) {
-      return;
-    }
-
-    const count = await repo.stashApply();
-
-    if (count === undefined) {
-      this.notify("No stash to apply.", "warn");
-      return;
-    }
-
-    this.notify(
-      `Applied ${count} file(s) from the latest stash. Compare against the remote to resolve any conflicts.`,
-    );
-  }
-
-  async stashPop(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
-
-    if (!repo) {
-      return;
-    }
-
-    const count = await repo.stashPop();
-
-    if (count === undefined) {
-      this.notify("No stash to pop.", "warn");
-      return;
-    }
-
-    this.notify(
-      `Popped ${count} file(s) from the latest stash. Compare against the remote to resolve any conflicts.`,
-    );
   }
 
   dispose(): void {

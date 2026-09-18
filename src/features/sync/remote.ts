@@ -1,9 +1,9 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import { Base } from "./base";
-import { buildEntityArtifactRelativePaths } from "./core/utilities/artifact-path";
-import { Config } from "./config";
-import { Entity } from "./core/entity/entity";
+import { buildEntityArtifactRelativePaths } from "../../core/utilities/artifact-path";
+import { Config } from "../../config";
+import { Entity } from "../../core/entity/entity";
 
 export const REMOTE_SCHEME = "twls-remote";
 

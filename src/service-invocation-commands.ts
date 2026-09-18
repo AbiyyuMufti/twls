@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "./logger";
-import { Model } from "./model";
-import { Repository } from "./repository";
+import { Model } from "./features/sync/model";
+import { Repository } from "./features/sync/repository";
 import { invokeThingService, searchThingsForEntity } from "./thingworx";
 import {
   buildServiceInvocationStub,

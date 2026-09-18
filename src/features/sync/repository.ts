@@ -1,27 +1,27 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import { Config } from "./config";
+import { Config } from "../../config";
 import { REMOTE_SCHEME } from "./remote";
-import { normalizeEol } from "./core/utilities/text";
+import { normalizeEol } from "../../core/utilities/text";
 import {
   Entity,
   EntityMeta,
   getWatchedFilePattern,
   Service,
   Subscription,
-} from "./core/entity/entity";
+} from "../../core/entity/entity";
 
 import {
   fetchEntity,
   fetchProjectEntity,
   updateEntity,
-} from "./core/thingworx/entity";
-import { ProjectMeta } from "./core/entity/project";
-import { searchEntityMeta, searchProjectMeta } from "./core/thingworx/search";
+} from "../../core/thingworx/entity";
+import { ProjectMeta } from "../../core/entity/project";
+import { searchEntityMeta, searchProjectMeta } from "../../core/thingworx/search";
 import {
   readEntityServiceDefinition,
   writeEntityServiceDefinitions,
-} from "./features/service-definitions/storage";
+} from "../service-definitions/storage";
 import {
   readEntityServices,
   readEntitySubscriptions,
@@ -31,22 +31,22 @@ import {
   writeEntitySubscriptions,
   writeServices,
   writeSubscriptions,
-} from "./features/sync/storage";
+} from "./storage";
 import {
   ArtifactKind,
   buildArtifactRelativePath,
   ResolvedArtifact,
   resolveArtifact,
   buildArtifactFolderRelativePath,
-} from "./core/utilities/artifact-path";
-import { createStashEntry, StashedFile, StashEntry } from "./features/stash/model";
-import { StashStore } from "./features/stash/store";
+} from "../../core/utilities/artifact-path";
+import { createStashEntry, StashedFile, StashEntry } from "../stash/model";
+import { StashStore } from "../stash/store";
 import yaml from "js-yaml";
 import {
   buildDefinitionHeaderComment,
   buildServiceDefinitionTemplate,
-} from "./features/service-definitions/templates";
-import { collapseServiceDefinition } from "./features/service-definitions/collapse";
+} from "../service-definitions/templates";
+import { collapseServiceDefinition } from "../service-definitions/collapse";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced" | "new";

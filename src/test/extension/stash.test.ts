@@ -6,7 +6,7 @@ import * as vscode from "vscode";
 import { buildArtifactRelativePath } from "../../core/utilities/artifact-path";
 import { Config } from "../../config";
 import { ThingShape } from "../../core/entity/thing-shape";
-import { Repository } from "../../repository";
+import { Repository } from "../../features/sync/repository";
 import { createStashEntry } from "../../features/stash/model";
 import { StashStore } from "../../features/stash/store";
 import {
