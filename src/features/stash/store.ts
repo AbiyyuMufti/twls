@@ -4,7 +4,7 @@ import {
   stashEntrySchema,
   stashIdSchema,
   sortStashEntriesNewestFirst,
-} from "./stash";
+} from "./model";
 
 /**
  * On-disk stash storage for one repository. Entries live as

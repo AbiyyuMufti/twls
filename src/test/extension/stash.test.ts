@@ -7,8 +7,8 @@ import { buildArtifactRelativePath } from "../../utilities/artifact-path";
 import { Config } from "../../config";
 import { ThingShape } from "../../entity/thing-shape";
 import { Repository } from "../../repository";
-import { createStashEntry } from "../../stash";
-import { StashStore } from "../../stash-store";
+import { createStashEntry } from "../../features/stash/model";
+import { StashStore } from "../../features/stash/store";
 import { writeEntityServices, writeEntitySubscriptions } from "../../thingworx";
 import {
   getReadingCode,

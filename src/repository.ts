@@ -36,8 +36,8 @@ import {
   resolveArtifact,
   buildArtifactFolderRelativePath,
 } from "./utilities/artifact-path";
-import { createStashEntry, StashedFile, StashEntry } from "./stash";
-import { StashStore } from "./stash-store";
+import { createStashEntry, StashedFile, StashEntry } from "./features/stash/model";
+import { StashStore } from "./features/stash/store";
 import yaml from "js-yaml";
 import {
   buildDefinitionHeaderComment,
