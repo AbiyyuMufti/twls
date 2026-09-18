@@ -2,12 +2,13 @@ import * as vscode from "vscode";
 import { logger } from "./logger";
 import { Model } from "./model";
 import { Repository } from "./repository";
-import { invokeThingService } from "./thingworx";
+import { invokeThingService, searchThingsForEntity } from "./thingworx";
 import {
   buildServiceInvocationStub,
   formatServiceInvocationResult,
   parseServiceInvocationParams,
 } from "./service-invocation";
+import { ThingSearchRow } from "./entity/zod-thing-search";
 
 /**
  * Registers `twls.callService`: a manual, Postman-style command to invoke a
@@ -36,6 +37,71 @@ export class ServiceInvocationCommands implements vscode.Disposable {
       placeHolder: "Pick repository",
       ignoreFocusOut: true,
     });
+  }
+
+  /**
+   * Picks a Thing that implements the repo's active entity via
+   * {@link searchThingsForEntity}. Falls back to manual entry if the search
+   * comes back empty or fails outright — search failing shouldn't block the
+   * whole command, since ThingWorx search/permissions setups vary.
+   */
+  private async pickThingName(repo: Repository): Promise<string | undefined> {
+    let things: ThingSearchRow[] = [];
+
+    try {
+      things = await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Searching Things implementing ${repo.entity.meta.name}…`,
+        },
+        () => searchThingsForEntity(repo.config, repo.entity.meta),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(
+        `Thing search failed, falling back to manual entry: ${message}`,
+      );
+    }
+
+    if (things.length === 0) {
+      return vscode.window.showInputBox({
+        prompt: `Thing that implements ${repo.entity.meta.name} — services aren't directly invocable on a ${repo.entity.meta.type}`,
+        placeHolder: "e.g. TestTiming",
+        ignoreFocusOut: true,
+        validateInput: (value) =>
+          value ? undefined : "Thing name is required.",
+      });
+    }
+
+    const ENTER_MANUALLY = "Enter manually…";
+    const picked = await vscode.window.showQuickPick(
+      [
+        ...things.map((thing) => ({
+          label: thing.name,
+          description: thing.type,
+        })),
+        { label: ENTER_MANUALLY },
+      ],
+      {
+        placeHolder: `Pick a Thing implementing ${repo.entity.meta.name}`,
+        ignoreFocusOut: true,
+      },
+    );
+
+    if (!picked) {
+      return undefined;
+    }
+
+    if (picked.label === ENTER_MANUALLY) {
+      return vscode.window.showInputBox({
+        prompt: "Thing name",
+        ignoreFocusOut: true,
+        validateInput: (value) =>
+          value ? undefined : "Thing name is required.",
+      });
+    }
+
+    return picked.label;
   }
 
   private async callService(): Promise<void> {
@@ -68,13 +134,7 @@ export class ServiceInvocationCommands implements vscode.Disposable {
       return;
     }
 
-    const thingName = await vscode.window.showInputBox({
-      prompt: `Thing that implements ${repo.entity.meta.name} — services aren't directly invocable on a ${repo.entity.meta.type}`,
-      placeHolder: "e.g. TestTiming",
-      ignoreFocusOut: true,
-      validateInput: (value) => (value ? undefined : "Thing name is required."),
-    });
-
+    const thingName = await this.pickThingName(repo);
     if (!thingName) {
       return;
     }
