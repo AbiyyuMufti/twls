@@ -35,7 +35,7 @@ import {
   ResolvedArtifact,
   resolveArtifact,
   buildArtifactFolderRelativePath,
-} from "./artifact-path";
+} from "./utilities/artifact-path";
 import { createStashEntry, StashedFile, StashEntry } from "./stash";
 import { StashStore } from "./stash-store";
 import yaml from "js-yaml";

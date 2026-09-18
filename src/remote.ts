@@ -1,7 +1,7 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import { Base } from "./base";
-import { buildEntityArtifactRelativePaths } from "./artifact-path";
+import { buildEntityArtifactRelativePaths } from "./utilities/artifact-path";
 import { Config } from "./config";
 import { Entity } from "./entity/entity";
 

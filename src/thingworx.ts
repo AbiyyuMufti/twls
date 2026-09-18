@@ -24,7 +24,7 @@ import {
 import {
   buildArtifactFolderRelativePath,
   buildArtifactRelativePath,
-} from "./artifact-path";
+} from "./utilities/artifact-path";
 import {
   buildDefinitionHeaderComment,
   collapseServiceDefinition,

@@ -4,7 +4,7 @@ import type {
   EntityMeta,
   Service,
   Subscription,
-} from "./entity/entity";
+} from "../entity/entity";
 
 export type ArtifactKind = "service" | "subscription";
 
