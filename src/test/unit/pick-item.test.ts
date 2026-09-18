@@ -1,7 +1,7 @@
 import * as assert from "node:assert";
 import type { ProjectMeta } from "../../core/entity/project";
 
-import { buildEntityPickItem, buildProjectPickItem } from "../../pick-item";
+import { buildEntityPickItem, buildProjectPickItem } from "../../features/pickers/pick-item";
 import { EntityMeta } from "../../entity/entity";
 
 const entityMeta: EntityMeta = {
