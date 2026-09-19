@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Commands } from "./features/sync/commands";
 import { StashCommands } from "./features/stash/commands";
 import { logger } from "./logger";
-import { Model } from "./features/sync/model";
+import { Model } from "./model";
 import { ServiceInvocationCommands } from "./features/service-invocation/commands";
 
 export function activate(context: vscode.ExtensionContext): void {

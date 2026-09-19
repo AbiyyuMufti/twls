@@ -1,8 +1,11 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import { Config } from "../../config";
-import { REMOTE_SCHEME, RemoteTextDocumentContentProvider } from "./remote";
-import { Repository } from "./repository";
+import { Config } from "./config";
+import {
+  REMOTE_SCHEME,
+  RemoteTextDocumentContentProvider,
+} from "./features/sync/remote";
+import { Repository } from "./features/sync/repository";
 
 /**
  * Owns the extension's live state: one {@link Repository} per workspace folder

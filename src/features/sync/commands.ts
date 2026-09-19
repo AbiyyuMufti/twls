@@ -2,15 +2,10 @@ import path from "node:path";
 import * as vscode from "vscode";
 import { Config } from "../../config";
 import { logger } from "../../logger";
-import { Model } from "./model";
+import { Model } from "../../model";
 import { Repository } from "./repository";
-import {
-  fetchProjectEntity,
-} from "../../core/thingworx/entity";
-import {
-  showEntityMetaPick,
-  showProjectMetaPick,
-} from "../pickers/quick-pick";
+import { fetchProjectEntity } from "../../core/thingworx/entity";
+import { showEntityMetaPick, showProjectMetaPick } from "../pickers/quick-pick";
 import { EntityMeta } from "../../core/entity/entity";
 
 /**

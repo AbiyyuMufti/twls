@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { ThingSearchRow } from "../../core/entity/thing-search";
 import { searchThingsForEntity } from "../../core/thingworx/search";
 import { logger } from "../../logger";
-import { Model } from "../sync/model";
+import { Model } from "../../model";
 import { Repository } from "../sync/repository";
 import { invokeThingService } from "./client";
 import {

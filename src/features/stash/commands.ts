@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../../logger";
-import { Model } from "../sync/model";
+import { Model } from "../../model";
 import { Repository } from "../sync/repository";
 
 export class StashCommands implements vscode.Disposable {
