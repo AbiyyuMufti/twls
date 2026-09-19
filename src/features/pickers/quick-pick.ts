@@ -2,8 +2,16 @@ import * as vscode from "vscode";
 import { Config } from "../../config";
 import { EntityMeta } from "../../core/entity/entity";
 import { ProjectMeta } from "../../core/entity/project";
-import { buildEntityPickItem, buildProjectPickItem, type MetaPickItem } from "./pick-item";
-import { searchEntityMeta, searchProjectMeta } from "../../core/thingworx/search";
+import {
+  buildEntityPickItem,
+  buildProjectPickItem,
+  type MetaPickItem,
+} from "./pick-item";
+import {
+  searchEntityMeta,
+  searchProjectMeta,
+} from "../../core/thingworx/search";
+
 /**
  * Opens a QuickPick that live-searches entities and resolves to the picked
  * {@link EntityMeta} (or `undefined` when the picker is dismissed).

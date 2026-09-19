@@ -3,6 +3,7 @@ import { Entity, EntityMeta, entityMap } from "../entity/entity";
 import { ProjectMeta } from "../entity/project";
 import { searchEntityMeta } from "./search";
 import { thingworxFetch } from "./client";
+
 /** Downloads and parses a single entity from ThingWorx. */
 export async function fetchEntity(
   config: Config,
@@ -30,6 +31,7 @@ export async function fetchProjectEntity(
 
   return Promise.all(entities);
 }
+
 /** Pushes a whole entity definition back to ThingWorx with an optional comment. */
 export async function updateEntity(
   config: Config,

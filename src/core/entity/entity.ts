@@ -2,7 +2,6 @@ import z from "zod";
 import { ThingShape } from "./thing-shape";
 import { ThingTemplate } from "./thing-template";
 import type { ServiceDefinition } from "./service-definition-schema";
-import { localServiceSchema } from "./service-schema";
 import type { Service } from "./service-schema";
 import type { Subscription } from "./subscription-schema";
 
@@ -43,10 +42,7 @@ export const entityMetaSchema = z.object({
 export type EntityMeta = z.infer<typeof entityMetaSchema>;
 
 export function getWatchedFilePattern(): string {
-  const serviceExtensions = localServiceSchema.shape.extension.options.map(
-    (ext) => ext.slice(1),
-  );
-  return `**/*.{${[...serviceExtensions, "yaml"].join(",")}}`;
+  return `**/*.{${["js", "sql", "yaml"].join(",")}}`;
 }
 
 /**
