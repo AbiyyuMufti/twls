@@ -1,11 +1,12 @@
 import z from "zod";
-import { Entity, EntityMeta, Service, Subscription } from "./entity";
+import { Entity, EntityMeta } from "./entity";
+import { Service } from "./service-schema";
 import {
   ServiceDefinition,
   serviceDefinitionsSchema,
 } from "./service-definition-schema";
-import { scriptServiceImplementationSchema } from "./service-implementation";
-import { subscriptionsSchema } from "./subscription";
+import { scriptServiceImplementationSchema } from "./service-implementation-schema";
+import { Subscription, subscriptionsSchema } from "./subscription-schema";
 
 /**
  * A ThingWorx thing shape. Its services and subscriptions are stored as

@@ -1,5 +1,6 @@
 import * as assert from "node:assert";
-import type { Service, Subscription } from "../../core/entity/entity";
+import type { Service } from "../../core/entity/service-schema";
+import type { Subscription } from "../../core/entity/subscription-schema";
 import { ThingShape } from "../../core/entity/thing-shape";
 import {
   artifactKindFromFolderName,

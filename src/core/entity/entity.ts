@@ -2,6 +2,9 @@ import z from "zod";
 import { ThingShape } from "./thing-shape";
 import { ThingTemplate } from "./thing-template";
 import type { ServiceDefinition } from "./service-definition-schema";
+import { localServiceSchema } from "./service-schema";
+import type { Service } from "./service-schema";
+import type { Subscription } from "./subscription-schema";
 
 /**
  * Generic entity domain model: identity (`EntityMeta`), the artifact shapes
@@ -38,38 +41,6 @@ export const entityMetaSchema = z.object({
 });
 
 export type EntityMeta = z.infer<typeof entityMetaSchema>;
-
-/** A single callable service: its name, source code, and file extension. */
-export const localServiceSchema = z.object({
-  name: z.string(),
-  source: z.string(),
-  extension: z.enum([".js", ".sql"]),
-});
-
-export const localSubscriptionSchema = z.object({
-  name: z.string(),
-  source: z.string(),
-  extension: z.enum([".js"]),
-});
-
-export type Service = z.infer<typeof localServiceSchema>;
-export type Subscription = z.infer<typeof localSubscriptionSchema>;
-
-/** Glob for watching all service files (`.js` and `.sql`) under a root. */
-export function getServiceExtensionPattern(): string {
-  const s = localServiceSchema.shape.extension.options
-    .map((ext) => ext.slice(1))
-    .join(",");
-  return `**/*.{${s}}`;
-}
-
-/** Glob for watching all subscription files (`.js`) under a root. */
-export function getSubscriptionExtensionPattern(): string {
-  const s = localSubscriptionSchema.shape.extension.options
-    .map((ext) => ext.slice(1))
-    .join(",");
-  return `**/*.{${s}}`;
-}
 
 export function getWatchedFilePattern(): string {
   const serviceExtensions = localServiceSchema.shape.extension.options.map(

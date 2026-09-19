@@ -7,9 +7,9 @@ import {
   Entity,
   EntityMeta,
   getWatchedFilePattern,
-  Service,
-  Subscription,
 } from "../../core/entity/entity";
+import type { Service } from "../../core/entity/service-schema";
+import type { Subscription } from "../../core/entity/subscription-schema";
 
 import {
   fetchEntity,

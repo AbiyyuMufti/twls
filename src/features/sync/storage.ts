@@ -3,11 +3,15 @@ import * as vscode from "vscode";
 import {
   Entity,
   EntityMeta,
-  Service,
-  localServiceSchema,
-  Subscription,
-  localSubscriptionSchema,
 } from "../../core/entity/entity";
+import {
+  localServiceSchema,
+  Service,
+} from "../../core/entity/service-schema";
+import {
+  localSubscriptionSchema,
+  Subscription,
+} from "../../core/entity/subscription-schema";
 import {
   buildArtifactFolderRelativePath,
   buildArtifactRelativePath,

@@ -1,5 +1,6 @@
 import z from "zod";
-import { Entity, EntityMeta, Service, Subscription } from "./entity";
+import { Entity, EntityMeta } from "./entity";
+import { Service } from "./service-schema";
 import {
   ServiceDefinition,
   serviceDefinitionsSchema,
@@ -7,8 +8,8 @@ import {
 import {
   queryConfigurationTableSchema,
   scriptConfigurationTableSchema,
-} from "./service-implementation";
-import { subscriptionsSchema } from "./subscription";
+} from "./service-implementation-schema";
+import { Subscription, subscriptionsSchema } from "./subscription-schema";
 
 /**
  * A ThingWorx thing template. Services and subscriptions are looked up from
