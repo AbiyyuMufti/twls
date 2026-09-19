@@ -1,15 +1,15 @@
 import * as vscode from "vscode";
+import { ThingSearchRow } from "../../core/entity/thing-search";
+import { searchThingsForEntity } from "../../core/thingworx/search";
 import { logger } from "../../logger";
 import { Model } from "../sync/model";
 import { Repository } from "../sync/repository";
-import { invokeThingService, searchThingsForEntity } from "./client";
+import { invokeThingService } from "./client";
 import {
   buildServiceInvocationStub,
   formatServiceInvocationResult,
   parseServiceInvocationParams,
 } from "./format";
-import { ThingSearchRow } from "./thing-search-schema";
-
 /**
  * Registers `twls.callService`: a manual, Postman-style command to invoke a
  * service on a live Thing and show the result. Kept separate from
