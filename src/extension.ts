@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import { CommandRunner } from "./command-runner";
+import { FeatureCommands } from "./feature-commands";
 import { Commands } from "./features/sync/commands";
 import { StashCommands } from "./features/stash/commands";
 import { logger } from "./logger";
@@ -7,14 +9,15 @@ import { ServiceInvocationCommands } from "./features/service-invocation/command
 
 export function activate(context: vscode.ExtensionContext): void {
   const model = new Model(context, vscode.workspace.workspaceFolders);
-  const commands = new Commands(model);
-  const stashCommands = new StashCommands(model);
-  const serviceInvocationCommands = new ServiceInvocationCommands(model);
+  const runner = new CommandRunner(model);
+  const features: FeatureCommands[] = [
+    new Commands(model, runner),
+    new StashCommands(model, runner),
+    new ServiceInvocationCommands(model, runner),
+  ];
   context.subscriptions.push(
     model,
-    commands,
-    stashCommands,
-    serviceInvocationCommands,
+    ...features,
     vscode.commands.registerCommand("twls.showOutput", () => {
       logger.show();
     }),

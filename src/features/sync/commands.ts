@@ -1,9 +1,9 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import { Config } from "../../config";
-import { logger } from "../../logger";
+import { CommandRunner } from "../../command-runner";
+import { FeatureCommands } from "../../feature-commands";
 import { Model } from "../../model";
-import { Repository } from "./repository";
 import { fetchProjectEntity } from "../../core/thingworx/entity";
 import { showEntityMetaPick, showProjectMetaPick } from "../pickers/quick-pick";
 import { EntityMeta } from "../../core/entity/entity";
@@ -13,24 +13,27 @@ import { EntityMeta } from "../../core/entity/entity";
  * {@link Model}. Commands invoked from source control pass a root URI / source
  * control state so the right repository can be targeted directly.
  */
-export class Commands implements vscode.Disposable {
+export class Commands implements FeatureCommands {
   private disposables: vscode.Disposable[] = [];
 
-  constructor(private model: Model) {
+  constructor(
+    private model: Model,
+    private runner: CommandRunner,
+  ) {
     this.disposables.push(
       vscode.commands.registerCommand("twls.init", () => {
-        this.run("Initialize", () => this.init());
+        this.runner.run("Initialize", () => this.init());
       }),
       vscode.commands.registerCommand(
         "twls.pull",
         (sourceControl?: vscode.SourceControl) => {
-          this.run("Pull", () => this.pull(sourceControl?.rootUri));
+          this.runner.run("Pull", () => this.pull(sourceControl?.rootUri));
         },
       ),
       vscode.commands.registerCommand(
         "twls.pullProject",
         (sourceControl?: vscode.SourceControl) => {
-          this.run("Pull Project", () =>
+          this.runner.run("Pull Project", () =>
             this.pullProject(sourceControl?.rootUri),
           );
         },
@@ -38,82 +41,30 @@ export class Commands implements vscode.Disposable {
       vscode.commands.registerCommand(
         "twls.push",
         (sourceControl?: vscode.SourceControl) => {
-          this.run("Push", () => this.push(sourceControl?.rootUri));
+          this.runner.run("Push", () => this.push(sourceControl?.rootUri));
         },
       ),
       vscode.commands.registerCommand(
         "twls.switchEntity",
         (rootUri?: vscode.Uri) => {
-          this.run("Switch Entity", () => this.switchEntity(rootUri));
+          this.runner.run("Switch Entity", () => this.switchEntity(rootUri));
         },
       ),
       vscode.commands.registerCommand(
         "twls.discard",
         (resourceState: vscode.SourceControlResourceState) => {
-          this.run("Discard", () => this.discard(resourceState.resourceUri));
+          this.runner.run("Discard", () => this.discard(resourceState.resourceUri));
         },
       ),
       vscode.commands.registerCommand(
         "twls.newService",
         (sourceControl?: vscode.SourceControl) => {
-          this.run("New Service", () =>
+          this.runner.run("New Service", () =>
             this.newService(sourceControl?.rootUri),
           );
         },
       ),
     );
-  }
-
-  /**
-   * Runs a command handler with a visible loading state (status-bar message
-   * plus a spinner on the Source Control icon) and logs start/failure to the
-   * TWLS output channel. On failure, shows an error toast with a "Show
-   * Output" action so the stack trace is one click away.
-   */
-  private run(label: string, fn: () => Promise<void>): void {
-    logger.info(`${label}…`);
-
-    const promise = vscode.window.withProgress(
-      { location: vscode.ProgressLocation.SourceControl, title: label },
-      fn,
-    );
-
-    vscode.window.setStatusBarMessage(`$(sync~spin) TWLS: ${label}…`, promise);
-
-    void Promise.resolve(promise)
-      .then(() => {})
-      .catch((error: unknown) => {
-        let message: string;
-
-        if (error instanceof Error) {
-          message = error.message;
-        } else if (typeof error === "string") {
-          message = error;
-        } else {
-          message = JSON.stringify(error);
-        }
-
-        logger.error(`${label} failed: ${message}`, error);
-
-        void vscode.window
-          .showErrorMessage(message, "Show Output")
-          .then((selection) => {
-            if (selection === "Show Output") {
-              logger.show();
-            }
-          });
-      });
-  }
-
-  /** Logs a result and shows it as an info or warning toast. */
-  private notify(message: string, level: "info" | "warn" = "info"): void {
-    if (level === "warn") {
-      logger.warn(message);
-      void vscode.window.showWarningMessage(message);
-    } else {
-      logger.info(message);
-      void vscode.window.showInformationMessage(message);
-    }
   }
 
   /**
@@ -180,24 +131,11 @@ export class Commands implements vscode.Disposable {
 
     await config.save();
 
-    this.notify("TWLS initialized successfully.");
-  }
-
-  private async resolveRepository(
-    rootUri?: vscode.Uri,
-  ): Promise<Repository | undefined> {
-    if (rootUri) {
-      return this.model.getRepository(rootUri);
-    }
-
-    return this.model.showRepositoryPick({
-      placeHolder: "Pick repository",
-      ignoreFocusOut: true,
-    });
+    this.runner.notify("TWLS initialized successfully.");
   }
 
   async newService(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
+    const repo = await this.runner.resolveRepository(rootUri);
 
     if (!repo) {
       return;
@@ -242,13 +180,13 @@ export class Commands implements vscode.Disposable {
 
     await repo.scaffoldNewService(name, kindPick === "SQL" ? "sql" : "js");
 
-    this.notify(
+    this.runner.notify(
       `Created local boilerplate for "${name}". Edit the .definition and code files — pushing a brand-new service isn't wired up yet, that's next.`,
     );
   }
 
   async pull(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
+    const repo = await this.runner.resolveRepository(rootUri);
 
     if (!repo) {
       return;
@@ -258,18 +196,18 @@ export class Commands implements vscode.Disposable {
       await repo.pull();
 
     if (numServices === 0 && numSubscriptions === 0) {
-      this.notify(
+      this.runner.notify(
         "All services and subscriptions are up to date with ThingWorx",
       );
     } else {
-      this.notify(
+      this.runner.notify(
         `Pulled ${numServices} service(s) with ${numServiceDefinitions} definitions and ${numSubscriptions} subscription(s) from ${repo.entity.meta.name} successfully.`,
       );
     }
   }
 
   async pullProject(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
+    const repo = await this.runner.resolveRepository(rootUri);
 
     if (!repo) {
       return;
@@ -288,31 +226,31 @@ export class Commands implements vscode.Disposable {
       await repo.pullProject(projectMeta);
 
     if (numServices === 0 && numSubscriptions === 0) {
-      this.notify(
+      this.runner.notify(
         `All services from entities of ${projectMeta.name} are up to date with ThingWorx`,
       );
     } else {
-      this.notify(
+      this.runner.notify(
         `Pulled ${numServices} service(s) and ${numSubscriptions} subscription(s) from entities of ${projectMeta.name} successfully.`,
       );
     }
   }
 
   async push(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
+    const repo = await this.runner.resolveRepository(rootUri);
 
     if (!repo) {
       return;
     }
 
     const { numServices, numSubscriptions } = await repo.push();
-    this.notify(
+    this.runner.notify(
       `Pushed ${numServices} service(s) and ${numSubscriptions} subscription(s) to ${repo.entity.meta.name} successfully.`,
     );
   }
 
   async switchEntity(rootUri?: vscode.Uri): Promise<void> {
-    const repo = await this.resolveRepository(rootUri);
+    const repo = await this.runner.resolveRepository(rootUri);
 
     if (!repo) {
       return;
@@ -328,7 +266,7 @@ export class Commands implements vscode.Disposable {
     }
 
     await repo.switchEntity(entityMeta);
-    this.notify(`Entity switched to ${entityMeta.name} successfully.`);
+    this.runner.notify(`Entity switched to ${entityMeta.name} successfully.`);
   }
 
   async discard(localUri: vscode.Uri): Promise<void> {
@@ -353,7 +291,7 @@ export class Commands implements vscode.Disposable {
 
     if (selected === "Discard") {
       await repo.discard(localUri);
-      this.notify(`Discarded ${filename}.`);
+      this.runner.notify(`Discarded ${filename}.`);
     }
   }
 
