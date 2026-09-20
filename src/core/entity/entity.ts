@@ -9,8 +9,8 @@ import type { Subscription } from "./subscription-schema";
  * Generic entity domain model: identity (`EntityMeta`), the artifact shapes
  * every entity exposes (`Service`, `Subscription`), and the `Entity`
  * interface itself. No REST/network concerns live here — that's
- * `thingworx.ts`'s responsibility. Per-entity-type parsing (ThingShape,
- * ThingTemplate, ...) lives under `entity/`.
+ * `core/thingworx/`'s responsibility. Per-entity-type parsing (ThingShape,
+ * ThingTemplate, ...) lives under `core/entity/`.
  */
 
 /** Maps each entity type to the REST collection ("parent type") it lives under. */
