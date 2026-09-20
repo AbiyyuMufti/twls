@@ -4,7 +4,6 @@ import { ThingSearchRow } from "../../core/entity/thing-search";
 import { searchThingsForEntity } from "../../core/thingworx/search";
 import { FeatureCommands } from "../../feature-commands";
 import { logger } from "../../logger";
-import { Model } from "../../model";
 import { Repository } from "../sync/repository";
 import { invokeThingService } from "./client";
 import {
@@ -21,10 +20,7 @@ import {
 export class ServiceInvocationCommands implements FeatureCommands {
   private disposables: vscode.Disposable[] = [];
 
-  constructor(
-    _model: Model,
-    private runner: CommandRunner,
-  ) {
+  constructor(private runner: CommandRunner) {
     this.disposables.push(
       vscode.commands.registerCommand("twls.callService", () => {
         this.runner.run("Call Service", () => this.callService());

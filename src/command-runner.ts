@@ -1,10 +1,14 @@
 import * as vscode from "vscode";
 import { logger } from "./logger";
-import { Model } from "./model";
+import { Model } from "./features/sync/model";
 import { Repository } from "./features/sync/repository";
 
 export class CommandRunner {
   constructor(private model: Model) {}
+
+  getRepository(rootUri: vscode.Uri): Repository | undefined {
+    return this.model.getRepository(rootUri);
+  }
 
   async resolveRepository(
     rootUri?: vscode.Uri,

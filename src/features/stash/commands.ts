@@ -1,15 +1,11 @@
 import * as vscode from "vscode";
 import { CommandRunner } from "../../command-runner";
 import { FeatureCommands } from "../../feature-commands";
-import { Model } from "../../model";
 
 export class StashCommands implements FeatureCommands {
   private disposables: vscode.Disposable[] = [];
 
-  constructor(
-    _model: Model,
-    private runner: CommandRunner,
-  ) {
+  constructor(private runner: CommandRunner) {
     this.disposables.push(
       vscode.commands.registerCommand(
         "twls.stash",
@@ -20,7 +16,9 @@ export class StashCommands implements FeatureCommands {
       vscode.commands.registerCommand(
         "twls.stashList",
         (sourceControl?: vscode.SourceControl) => {
-          this.runner.run("Stash List", () => this.stashList(sourceControl?.rootUri));
+          this.runner.run("Stash List", () =>
+            this.stashList(sourceControl?.rootUri),
+          );
         },
       ),
       vscode.commands.registerCommand(
@@ -34,7 +32,9 @@ export class StashCommands implements FeatureCommands {
       vscode.commands.registerCommand(
         "twls.stashPop",
         (sourceControl?: vscode.SourceControl) => {
-          this.runner.run("Stash Pop", () => this.stashPop(sourceControl?.rootUri));
+          this.runner.run("Stash Pop", () =>
+            this.stashPop(sourceControl?.rootUri),
+          );
         },
       ),
     );

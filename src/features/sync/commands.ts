@@ -3,7 +3,6 @@ import * as vscode from "vscode";
 import { Config } from "../../config";
 import { CommandRunner } from "../../command-runner";
 import { FeatureCommands } from "../../feature-commands";
-import { Model } from "../../model";
 import { fetchProjectEntity } from "../../core/thingworx/entity";
 import { showEntityMetaPick, showProjectMetaPick } from "../pickers/quick-pick";
 import { EntityMeta } from "../../core/entity/entity";
@@ -13,13 +12,10 @@ import { EntityMeta } from "../../core/entity/entity";
  * {@link Model}. Commands invoked from source control pass a root URI / source
  * control state so the right repository can be targeted directly.
  */
-export class Commands implements FeatureCommands {
+export class RepositoryCommands implements FeatureCommands {
   private disposables: vscode.Disposable[] = [];
 
-  constructor(
-    private model: Model,
-    private runner: CommandRunner,
-  ) {
+  constructor(private runner: CommandRunner) {
     this.disposables.push(
       vscode.commands.registerCommand("twls.init", () => {
         this.runner.run("Initialize", () => this.init());
@@ -53,7 +49,9 @@ export class Commands implements FeatureCommands {
       vscode.commands.registerCommand(
         "twls.discard",
         (resourceState: vscode.SourceControlResourceState) => {
-          this.runner.run("Discard", () => this.discard(resourceState.resourceUri));
+          this.runner.run("Discard", () =>
+            this.discard(resourceState.resourceUri),
+          );
         },
       ),
       vscode.commands.registerCommand(
@@ -276,7 +274,7 @@ export class Commands implements FeatureCommands {
       throw new Error(`Expected ${localUri.fsPath} to be in a workspace.`);
     }
 
-    const repo = this.model.getRepository(workspaceFolder.uri);
+    const repo = this.runner.getRepository(workspaceFolder.uri);
 
     if (!repo) {
       return;
