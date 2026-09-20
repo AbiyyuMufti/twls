@@ -13,9 +13,7 @@ import {
 } from "./format";
 /**
  * Registers `twls.callService`: a manual, Postman-style command to invoke a
- * service on a live Thing and show the result. Kept separate from
- * `Commands` so this new/experimental feature doesn't touch existing
- * command wiring.
+ * service on a live Thing and show the result.
  */
 export class ServiceInvocationCommands implements FeatureCommands {
   private disposables: vscode.Disposable[] = [];

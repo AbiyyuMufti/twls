@@ -8,9 +8,8 @@ import { showEntityMetaPick, showProjectMetaPick } from "../pickers/quick-pick";
 import { EntityMeta } from "../../core/entity/entity";
 
 /**
- * Registers all `twls.*` VS Code commands and wires them to the shared
- * {@link Model}. Commands invoked from source control pass a root URI / source
- * control state so the right repository can be targeted directly.
+ * Registers `twls.*` repository lifecycle commands (init, pull, pullProject,
+ * push, switchEntity, discard, and newService) through CommandRunner.
  */
 export class RepositoryCommands implements FeatureCommands {
   private disposables: vscode.Disposable[] = [];
