@@ -73,3 +73,40 @@ export const serviceDefinitionAuthoringSchema = z.object({
 export type ServiceDefinitionAuthoring = z.infer<
   typeof serviceDefinitionAuthoringSchema
 >;
+
+/**
+ * Applies the lean authoring fields onto an existing server-side definition,
+ * keeping everything the .yaml doesn't model (isAsync, defaultValue aspects,
+ * isPrivate, ...).
+ */
+export function mergeServiceDefinition(
+  existing: ServiceDefinition,
+  incoming: ServiceDefinition,
+): ServiceDefinition {
+  const parameterDefinitions: Record<string, ParameterDefinition> = {};
+
+  for (const [name, param] of Object.entries(incoming.parameterDefinitions)) {
+    const old = existing.parameterDefinitions[name] as
+      | (ParameterDefinition & { aspects?: unknown })
+      | undefined;
+    parameterDefinitions[name] = {
+      ...param,
+      ...(old?.aspects !== undefined ? { aspects: old.aspects } : {}),
+    } as ParameterDefinition;
+  }
+
+  const oldResult = existing.resultType as ParameterDefinition & {
+    aspects?: unknown;
+  };
+
+  return {
+    ...existing,
+    description: incoming.description,
+    category: incoming.category,
+    parameterDefinitions,
+    resultType: {
+      ...oldResult,
+      baseType: incoming.resultType.baseType,
+    },
+  };
+}

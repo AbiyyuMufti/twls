@@ -17,7 +17,10 @@ import {
   updateEntity,
 } from "../../core/thingworx/entity";
 import { ProjectMeta } from "../../core/entity/project";
-import { searchEntityMeta, searchProjectMeta } from "../../core/thingworx/search";
+import {
+  searchEntityMeta,
+  searchProjectMeta,
+} from "../../core/thingworx/search";
 import {
   readEntityServiceDefinition,
   writeEntityServiceDefinitions,
@@ -331,7 +334,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       if (!knownServiceNames.has(service.name)) {
         if (!localDefinition) {
           throw new Error(
-            `New service "${service.name}" has no .yaml definition — cannot create it without one.`,
+            `Created local boilerplate for "${service.name}". Edit the .yaml definition and code file, then push.`,
           );
         }
 

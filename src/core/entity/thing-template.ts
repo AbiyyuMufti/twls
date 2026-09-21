@@ -2,10 +2,13 @@ import z from "zod";
 import { Entity, EntityMeta } from "./entity";
 import { Service } from "./service-schema";
 import {
+  mergeServiceDefinition,
   ServiceDefinition,
   serviceDefinitionsSchema,
 } from "./service-definition-schema";
 import {
+  buildQueryServiceImplementation,
+  buildScriptServiceImplementation,
   queryConfigurationTableSchema,
   scriptConfigurationTableSchema,
 } from "./service-implementation-schema";
@@ -196,13 +199,17 @@ export class ThingTemplate implements Entity {
     definition: ServiceDefinition,
     queryConfig?: { timeout: number; maxItems: number },
   ): void {
-    if (!this.source.thingShape.serviceDefinitions[name]) {
+    const existing = this.source.thingShape.serviceDefinitions[name];
+    if (!existing) {
       throw new Error(
         `Service ${name} does not exist on entity ${this.source.name}`,
       );
     }
 
-    this.source.thingShape.serviceDefinitions[name] = definition;
+    this.source.thingShape.serviceDefinitions[name] = mergeServiceDefinition(
+      existing,
+      definition,
+    );
 
     if (queryConfig) {
       const implementation =
@@ -236,21 +243,12 @@ export class ThingTemplate implements Entity {
 
     const configurationTables =
       extension === ".sql"
-        ? {
-            Query: {
-              rows: [
-                {
-                  sql: source,
-                  timeout: queryConfig?.timeout ?? 60,
-                  maxItems: queryConfig?.maxItems ?? 0,
-                },
-              ],
-            },
-          }
-        : { Script: { rows: [{ code: source }] } };
+        ? buildQueryServiceImplementation(name, source, {
+            timeout: queryConfig?.timeout ?? 60,
+            maxItems: queryConfig?.maxItems ?? 0,
+          })
+        : buildScriptServiceImplementation(name, source);
 
-    this.source.thingShape.serviceImplementations[name] = {
-      configurationTables,
-    };
+    this.source.thingShape.serviceImplementations[name] = configurationTables;
   }
 }

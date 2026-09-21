@@ -2,10 +2,14 @@ import z from "zod";
 import { Entity, EntityMeta } from "./entity";
 import { Service } from "./service-schema";
 import {
+  mergeServiceDefinition,
   ServiceDefinition,
   serviceDefinitionsSchema,
 } from "./service-definition-schema";
-import { scriptServiceImplementationSchema } from "./service-implementation-schema";
+import {
+  buildScriptServiceImplementation,
+  scriptServiceImplementationSchema,
+} from "./service-implementation-schema";
 import { Subscription, subscriptionsSchema } from "./subscription-schema";
 
 /**
@@ -142,13 +146,17 @@ export class ThingShape implements Entity {
 
   /** Replaces an existing service's definition. queryConfig is accepted for interface symmetry but ignored — ThingShape has no SQL services. */
   updateServiceDefinition(name: string, definition: ServiceDefinition): void {
-    if (!this.source.serviceDefinitions[name]) {
+    const existing = this.source.serviceDefinitions[name];
+    if (!existing) {
       throw new Error(
         `Service ${name} does not exist on entity ${this.source.name}`,
       );
     }
 
-    this.source.serviceDefinitions[name] = definition;
+    this.source.serviceDefinitions[name] = mergeServiceDefinition(
+      existing,
+      definition,
+    );
   }
 
   createService(
@@ -171,10 +179,9 @@ export class ThingShape implements Entity {
     }
 
     this.source.serviceDefinitions[name] = definition;
-    this.source.serviceImplementations[name] = {
-      configurationTables: {
-        Script: { rows: [{ code: source }] },
-      },
-    };
+    this.source.serviceImplementations[name] = buildScriptServiceImplementation(
+      name,
+      source,
+    );
   }
 }
