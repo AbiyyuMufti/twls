@@ -179,10 +179,6 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     const projectMeta = await searchProjectMeta(config, entityMeta.projectName);
     const entities = await fetchProjectEntity(config, projectMeta[0]);
-    if (entities?.length === 0) {
-      return;
-    }
-
     const entity = await fetchEntity(config, entityMeta);
     const repo = new Repository(rootUri, config, entity);
 

@@ -3,9 +3,8 @@ import * as vscode from "vscode";
 import { Config } from "../../config";
 import { CommandRunner } from "../../command-runner";
 import { FeatureCommands } from "../../feature-commands";
-import { fetchProjectEntity } from "../../core/thingworx/entity";
 import { showEntityMetaPick, showProjectMetaPick } from "../pickers/quick-pick";
-import { EntityMeta } from "../../core/entity/entity";
+import { searchEntityMeta } from "../../core/thingworx/search";
 
 /**
  * Registers `twls.*` repository lifecycle commands (init, pull, pullProject,
@@ -109,22 +108,19 @@ export class RepositoryCommands implements FeatureCommands {
       return;
     }
 
-    const entities = await fetchProjectEntity(config, projectMeta);
-
-    let entityMeta: EntityMeta | undefined;
-    if (!entities || entities.length <= 0) {
-      entityMeta = await showEntityMetaPick(config, {
+    const [firstEntity] = await searchEntityMeta(config, "*", projectMeta);
+    const entityMeta =
+      firstEntity ??
+      (await showEntityMetaPick(config, {
         placeHolder: "Pick entity",
         ignoreFocusOut: true,
-      });
+      }));
 
-      if (!entityMeta) {
-        return;
-      }
+    if (!entityMeta) {
+      return;
     }
 
-    config.entityName =
-      (entities ? entities[0]?.meta?.name : entityMeta?.name) || "";
+    config.entityName = entityMeta.name;
 
     await config.save();
 
