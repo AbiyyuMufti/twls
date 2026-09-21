@@ -50,6 +50,8 @@ import {
   buildServiceDefinitionTemplate,
 } from "../service-definitions/templates";
 import { collapseServiceDefinition } from "../service-definitions/collapse";
+import { dedupeByPreferredCase } from "../case-collision/detect";
+import { warnDroppedCaseCollisions } from "../case-collision/warn";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced" | "new";
@@ -798,25 +800,41 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
   private async updateWorkingTreeGroup(): Promise<void> {
     const workingTreeResources: vscode.SourceControlResourceState[] = [];
+
+    const { kept: workingServices, dropped: droppedServices } =
+      dedupeByPreferredCase(this._entity.getServices());
+
+    warnDroppedCaseCollisions(
+      this._entity.meta,
+      droppedServices.map((service) => ({
+        name: service.name,
+        label: "code file",
+      })),
+    );
+
+    const { kept: workingSubscriptions, dropped: droppedSubscriptions } =
+      dedupeByPreferredCase(this._entity.getSubscriptions());
+
+    warnDroppedCaseCollisions(
+      this._entity.meta,
+      droppedSubscriptions.map((subscription) => ({
+        name: subscription.name,
+        label: "code file",
+      })),
+    );
+
     const entries: Array<readonly [Service | Subscription, vscode.Uri]> = [
-      ...this._entity
-        .getServices()
-        .map(
-          (service) =>
-            [
-              service,
-              this.getLocalUriFromArtifact("service", service),
-            ] as const,
-        ),
-      ...this._entity
-        .getSubscriptions()
-        .map(
-          (subscription) =>
-            [
-              subscription,
-              this.getLocalUriFromArtifact("subscription", subscription),
-            ] as const,
-        ),
+      ...workingServices.map(
+        (service) =>
+          [service, this.getLocalUriFromArtifact("service", service)] as const,
+      ),
+      ...workingSubscriptions.map(
+        (subscription) =>
+          [
+            subscription,
+            this.getLocalUriFromArtifact("subscription", subscription),
+          ] as const,
+      ),
     ];
 
     for (const [artifact, localUri] of entries) {
@@ -848,7 +866,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     // Definition sidecars — services only, diffed against a freshly
     // rebuilt canonical form so YAML formatting quirks don't false-positive.
-    for (const service of this._entity.getServices()) {
+    for (const service of workingServices) {
       const definition = this._entity.getServiceDefinition(service.name);
 
       if (!definition) {
