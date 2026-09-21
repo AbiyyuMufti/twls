@@ -174,7 +174,7 @@ export class RepositoryCommands implements FeatureCommands {
     await repo.scaffoldNewService(name, kindPick === "SQL" ? "sql" : "js");
 
     this.runner.notify(
-      `Created local boilerplate for "${name}". Edit the .definition and code files — pushing a brand-new service isn't wired up yet, that's next.`,
+      `Created local boilerplate for "${name}". Edit the .yaml and code files.`,
     );
   }
 

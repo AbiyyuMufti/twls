@@ -16,7 +16,7 @@ export function buildDefinitionHeaderComment(): string {
   ].join("\n");
 }
 
-/** Boilerplate `.definition` YAML content for a brand-new service. */
+/** Boilerplate `.yaml` YAML content for a brand-new service. */
 export function buildServiceDefinitionTemplate(kind: "js" | "sql"): string {
   const starter = {
     description: "",

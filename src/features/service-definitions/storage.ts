@@ -12,7 +12,7 @@ import { warnDroppedCaseCollisions } from "../case-collision/warn";
 import { dedupeByPreferredCase } from "../case-collision/detect";
 
 export type QueryConfig = { timeout: number; maxItems: number };
-/** Writes a service's lean YAML `.definition` sidecar to disk. */
+/** Writes a service's lean YAML `.yaml` sidecar to disk. */
 export async function writeEntityServiceDefinition(
   rootUri: vscode.Uri,
   entityMeta: EntityMeta,
@@ -37,7 +37,7 @@ export async function writeEntityServiceDefinition(
 }
 
 /**
- * Writes `.definition` sidecars for a set of services. `getDefinition`/
+ * Writes `.yaml` sidecars for a set of services. `getDefinition`/
  * `getQueryConfig` are passed in rather than an `Entity` directly so this
  * stays usable for both "every service on the entity" (pull) and any future
  * filtered subset, mirroring how `writeServices` takes a `Service[]` rather
@@ -83,10 +83,7 @@ export async function writeEntityServiceDefinitions(
 }
 
 /**
- * Writes the given services to disk under `<root>/<project>/<entity>/`.
- * Returns how many of the writes succeeded.
-/**
- * Reads and validates a service's `.definition` sidecar, expanding it back
+ * Reads and validates a service's `.yaml` sidecar, expanding it back
  * into a full `ServiceDefinition`. Returns `undefined` if no sidecar file
  * exists for that service — that's the normal case for a service that was
  * pulled before this feature existed, or hasn't had its signature edited.

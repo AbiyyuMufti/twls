@@ -45,7 +45,7 @@ export const KNOWN_BASE_TYPES = [
   "INFOTABLE",
 ] as const;
 
-/** Lean, human-authored parameter entry inside a `.definition` file. */
+/** Lean, human-authored parameter entry inside a `.yaml` file. */
 export const parameterAuthoringSchema = z.object({
   name: z.string(),
   type: z.string(),
@@ -55,7 +55,7 @@ export const parameterAuthoringSchema = z.object({
 export type ParameterAuthoring = z.infer<typeof parameterAuthoringSchema>;
 
 /**
- * Lean, human-authored shape of a `.definition` sidecar file — what a user
+ * Lean, human-authored shape of a `.yaml` sidecar file — what a user
  * actually edits, as opposed to the full `ServiceDefinition` ThingWorx
  * expects. `timeout`/`maxItems` are SQL-only (they live on the
  * implementation's Query row server-side, not the definition) and are

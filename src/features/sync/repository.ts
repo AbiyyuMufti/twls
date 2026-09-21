@@ -671,7 +671,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   }
 
   /**
-   * Writes local boilerplate for a brand-new service: a `.definition`
+   * Writes local boilerplate for a brand-new service: a `.yaml`
    * sidecar plus a stub code file. Purely local — nothing is sent to
    * ThingWorx yet; wiring an actual create-and-push flow is the next slice.
    */

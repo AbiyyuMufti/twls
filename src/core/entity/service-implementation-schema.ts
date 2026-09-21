@@ -78,7 +78,7 @@ export function buildQueryServiceImplementation(
   return {
     name,
     description: "",
-    allowOverride: true,
+    allowOverride: false,
     handlerName,
     configurationTables: {
       Query: {

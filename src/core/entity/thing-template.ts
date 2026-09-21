@@ -241,7 +241,7 @@ export class ThingTemplate implements Entity {
 
     this.source.thingShape.serviceDefinitions[name] = definition;
 
-    const configurationTables =
+    const serviceImplementation =
       extension === ".sql"
         ? buildQueryServiceImplementation(name, source, {
             timeout: queryConfig?.timeout ?? 60,
@@ -249,6 +249,6 @@ export class ThingTemplate implements Entity {
           })
         : buildScriptServiceImplementation(name, source);
 
-    this.source.thingShape.serviceImplementations[name] = configurationTables;
+    this.source.thingShape.serviceImplementations[name] = serviceImplementation;
   }
 }
