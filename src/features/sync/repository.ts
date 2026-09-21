@@ -42,6 +42,7 @@ import {
   resolveArtifact,
   buildArtifactFolderRelativePath,
   parseArtifactPath,
+  ParsedArtifactPath,
 } from "../../core/utilities/artifact-path";
 import { createStashEntry, StashedFile, StashEntry } from "../stash/model";
 import { StashStore } from "../stash/store";
@@ -177,6 +178,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     const projectMeta = await searchProjectMeta(config, entityMeta.projectName);
     const entities = await fetchProjectEntity(config, projectMeta[0]);
+    if (entities?.length === 0) {
+      return;
+    }
 
     const entity = await fetchEntity(config, entityMeta);
     const repo = new Repository(rootUri, config, entity);
@@ -371,7 +375,9 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       this.config,
       this._entity,
       this.sourceControl.inputBox.value,
-    );
+    ).catch(() => {
+      throw new Error("Failed to push");
+    });
 
     const pushedEntity = await fetchEntity(this.config, this._entity.meta);
     this.setEntity(pushedEntity);
@@ -382,7 +388,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     return {
       numServices: localServices.length,
       numSubscriptions: localSubscriptions.length,
-      numServiceDefinitions: 0, // TODO
+      numServiceDefinitions: localServices.length,
     };
   }
 
@@ -450,11 +456,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     await this.stashStore.save(entry);
 
     for (const resourceState of dirtyStates) {
-      if (resourceState.contextValue === "new") {
-        await this.deleteFile(resourceState.resourceUri);
-      } else {
-        await this.discard(resourceState.resourceUri);
-      }
+      await this.discard(resourceState.resourceUri);
     }
     await this.updateWorkingTreeGroup();
 
@@ -583,7 +585,19 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     if (
       parsed?.kind === "service" &&
-      parsed.extension === DEFINITION_EXTENSION
+      !this._entity
+        .getServices()
+        .some((service) => service.name === parsed.name)
+    ) {
+      await this.discardNewService(localUri, parsed);
+      return;
+    }
+
+    if (
+      parsed?.kind === "service" &&
+      !this._entity
+        .getServices()
+        .some((service) => service.name === parsed.name)
     ) {
       await this.discardServiceDefinition(parsed.name);
       return;
@@ -631,6 +645,33 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       definition,
       this._entity.getServiceQueryConfig(serviceName),
     );
+  }
+
+  /**
+   * A service the entity doesn't have yet has no remote snapshot to restore,
+   * so discarding it means deleting it. Removing the code file takes its
+   * `.yaml` sidecar with it: the sidecar is only listed next to its code file,
+   * so it would otherwise be left behind, invisible.
+   */
+  private async discardNewService(
+    localUri: vscode.Uri,
+    parsed: ParsedArtifactPath,
+  ): Promise<void> {
+    await this.deleteFile(localUri);
+
+    if (parsed.extension !== DEFINITION_EXTENSION) {
+      await this.deleteFile(
+        vscode.Uri.joinPath(
+          this.rootUri,
+          ...buildArtifactRelativePath(
+            this._entity.meta,
+            "service",
+            parsed.name,
+            DEFINITION_EXTENSION,
+          ),
+        ),
+      );
+    }
   }
 
   /**

@@ -13,6 +13,7 @@ import {
 } from "../../features/service-definitions/templates";
 import { Repository } from "../../features/sync/repository";
 import { thingShapeWithServiceDefinition } from "../fixtures/service-definition-sources";
+import { exists } from "./stash.test";
 
 const meta: EntityMeta = {
   name: "test_timing",
@@ -97,6 +98,37 @@ suite("Repository discard (service definition)", () => {
     await assert.rejects(
       () => repo.discard(definitionUri("Nope")),
       /Service definition not found: Nope/,
+    );
+  });
+
+  function artifactUri(name: string, extension: string): vscode.Uri {
+    return vscode.Uri.joinPath(
+      root,
+      ...buildArtifactRelativePath(meta, "service", name, extension),
+    );
+  }
+
+  test("discarding a new service's code file removes its sidecar too", async () => {
+    await repo.scaffoldNewService("BrandNew", "js");
+
+    await repo.discard(artifactUri("BrandNew", ".js"));
+
+    assert.strictEqual(await exists(artifactUri("BrandNew", ".js")), false);
+    assert.strictEqual(
+      await exists(artifactUri("BrandNew", DEFINITION_EXTENSION)),
+      false,
+    );
+  });
+
+  test("discarding only a new service's sidecar keeps its code file", async () => {
+    await repo.scaffoldNewService("BrandNew", "js");
+
+    await repo.discard(artifactUri("BrandNew", DEFINITION_EXTENSION));
+
+    assert.strictEqual(await exists(artifactUri("BrandNew", ".js")), true);
+    assert.strictEqual(
+      await exists(artifactUri("BrandNew", DEFINITION_EXTENSION)),
+      false,
     );
   });
 });

@@ -290,7 +290,7 @@ const definitionMeta: EntityMeta = {
   parentType: "ThingShapes",
 };
 
-async function exists(uri: vscode.Uri): Promise<boolean> {
+export async function exists(uri: vscode.Uri): Promise<boolean> {
   try {
     await vscode.workspace.fs.stat(uri);
     return true;

@@ -41,7 +41,7 @@ export async function updateEntity(
   let endpoint = `/Thingworx/${entity.meta.parentType}/${entity.meta.name}`;
 
   if (comment) {
-    endpoint += `?reason=${comment}`;
+    endpoint += `?reason=${encodeURIComponent(comment)}`;
   }
 
   await thingworxFetch(config, {
