@@ -101,7 +101,10 @@ export class ThingShape implements Entity {
   }
 
   /** ThingShape services are always Script-backed; there is no SQL query config. */
-  getServiceQueryConfig(): { timeout: number; maxItems: number } | undefined {
+  getServiceQueryConfig(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    name?: string,
+  ): { timeout: number; maxItems: number } | undefined {
     return undefined;
   }
 

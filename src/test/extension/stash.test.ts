@@ -18,6 +18,13 @@ import {
   thingShapeMeta,
   thingShapeSource,
 } from "../fixtures/entity-sources";
+import {
+  buildServiceDefinitionYaml,
+  DEFINITION_EXTENSION,
+} from "../../features/service-definitions/templates";
+import { writeEntityServiceDefinitions } from "../../features/service-definitions/storage";
+import { EntityMeta } from "../../core/entity/entity";
+import { thingShapeWithServiceDefinition } from "../fixtures/service-definition-sources";
 
 const baseUrl = "http://twx.example.com:8080/Thingworx";
 const appKey = "550e8400-e29b-41d4-a716-446655440000";
@@ -273,5 +280,124 @@ suite("Repository stash", () => {
     await store.save(other);
 
     await assert.rejects(() => repo.stashApply(other.id), /belongs to entity/);
+  });
+});
+
+const definitionMeta: EntityMeta = {
+  name: "test_timing",
+  projectName: "TestProject",
+  type: "ThingShape",
+  parentType: "ThingShapes",
+};
+
+async function exists(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch (error) {
+    if (error instanceof vscode.FileSystemError) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+suite("Repository stash (definitions and new files)", () => {
+  let root: vscode.Uri;
+  let entity: ThingShape;
+  let repo: Repository;
+  let store: StashStore;
+
+  setup(async () => {
+    root = createRoot("twls-repo-stash-defs-");
+    const config = new Config(root, baseUrl, appKey, definitionMeta.name);
+    await config.save();
+    entity = new ThingShape(definitionMeta, thingShapeWithServiceDefinition);
+    repo = new Repository(root, config, entity);
+    store = new StashStore(root);
+
+    // Seed a clean working tree: code files plus their .yaml sidecars.
+    await writeEntityServices(root, entity);
+    await writeEntityServiceDefinitions(
+      root,
+      entity.meta,
+      entity.getServices(),
+      (name) => entity.getServiceDefinition(name),
+      (name) => entity.getServiceQueryConfig(name),
+    );
+  });
+
+  teardown(() => {
+    repo.dispose();
+    fs.rmSync(root.fsPath, { recursive: true, force: true });
+  });
+
+  function artifactUri(name: string, extension: string): vscode.Uri {
+    return vscode.Uri.joinPath(
+      root,
+      ...buildArtifactRelativePath(definitionMeta, "service", name, extension),
+    );
+  }
+
+  test("stash captures an edited sidecar and resets it to the canonical yaml", async () => {
+    const definition = entity.getServiceDefinition("testServiceWithParam");
+    assert.ok(definition);
+    const uri = artifactUri("testServiceWithParam", DEFINITION_EXTENSION);
+    const edited = "description: edited\n";
+    await writeText(uri, edited);
+
+    assert.strictEqual(await repo.stash(), 1);
+
+    assert.strictEqual(
+      await readText(uri),
+      buildServiceDefinitionYaml(definition),
+    );
+
+    const [entry] = await store.list();
+    assert.ok(entry);
+    assert.deepStrictEqual(entry.files[0]?.relativePath, [
+      "TestProject",
+      "test_timing",
+      "services",
+      "testServiceWithParam.yaml",
+    ]);
+    assert.strictEqual(entry.files[0]?.content, edited);
+  });
+
+  test("stash captures a deleted sidecar and recreates it", async () => {
+    const definition = entity.getServiceDefinition("testServiceWithParam");
+    assert.ok(definition);
+    const uri = artifactUri("testServiceWithParam", DEFINITION_EXTENSION);
+    await vscode.workspace.fs.delete(uri);
+
+    assert.strictEqual(await repo.stash(), 1);
+
+    assert.strictEqual(
+      await readText(uri),
+      buildServiceDefinitionYaml(definition),
+    );
+    const [entry] = await store.list();
+    assert.ok(entry);
+    assert.strictEqual(entry.files[0]?.deleted, true);
+  });
+
+  test("stash removes a scaffolded service locally and apply brings it back", async () => {
+    await repo.scaffoldNewService("BrandNew", "js");
+    const codeUri = artifactUri("BrandNew", ".js");
+    const definitionUri = artifactUri("BrandNew", DEFINITION_EXTENSION);
+    const codeText = await readText(codeUri);
+    const definitionText = await readText(definitionUri);
+
+    assert.strictEqual(await repo.stash(), 2);
+    assert.strictEqual(await exists(codeUri), false);
+    assert.strictEqual(await exists(definitionUri), false);
+
+    const [entry] = await store.list();
+    assert.ok(entry);
+    assert.ok(entry.files.every((file) => !file.deleted));
+
+    assert.strictEqual(await repo.stashApply(), 2);
+    assert.strictEqual(await readText(codeUri), codeText);
+    assert.strictEqual(await readText(definitionUri), definitionText);
   });
 });

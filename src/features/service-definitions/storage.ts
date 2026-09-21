@@ -6,12 +6,10 @@ import {
   ServiceDefinition,
   serviceDefinitionAuthoringSchema,
 } from "../../core/entity/service-definition-schema";
-import { collapseServiceDefinition } from "./collapse";
 import { expandServiceDefinition } from "./expand";
-import { buildDefinitionHeaderComment } from "./templates";
+import { buildServiceDefinitionYaml, DEFINITION_EXTENSION } from "./templates";
 import { warnDroppedCaseCollisions } from "../case-collision/warn";
 import { dedupeByPreferredCase } from "../case-collision/detect";
-const DEFINITION_EXTENSION = ".yaml";
 
 export type QueryConfig = { timeout: number; maxItems: number };
 /** Writes a service's lean YAML `.definition` sidecar to disk. */
@@ -32,9 +30,8 @@ export async function writeEntityServiceDefinition(
     ),
   );
 
-  const authoring = collapseServiceDefinition(definition, queryConfig);
   const content = new TextEncoder().encode(
-    buildDefinitionHeaderComment() + yaml.dump(authoring),
+    buildServiceDefinitionYaml(definition, queryConfig),
   );
   await vscode.workspace.fs.writeFile(uri, content);
 }

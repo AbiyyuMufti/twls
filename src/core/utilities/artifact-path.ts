@@ -1,8 +1,5 @@
 import path from "node:path";
-import type {
-  Entity,
-  EntityMeta,
-} from "../entity/entity";
+import type { Entity, EntityMeta } from "../entity/entity";
 import type { Service } from "../entity/service-schema";
 import type { Subscription } from "../entity/subscription-schema";
 

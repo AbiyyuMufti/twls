@@ -1,5 +1,11 @@
 import yaml from "js-yaml";
-import { KNOWN_BASE_TYPES } from "../../core/entity/service-definition-schema";
+import {
+  KNOWN_BASE_TYPES,
+  ServiceDefinition,
+} from "../../core/entity/service-definition-schema";
+import { collapseServiceDefinition } from "./collapse";
+
+export const DEFINITION_EXTENSION = ".yaml";
 
 export function buildDefinitionHeaderComment(): string {
   return [
@@ -21,4 +27,19 @@ export function buildServiceDefinitionTemplate(kind: "js" | "sql"): string {
   };
 
   return buildDefinitionHeaderComment() + yaml.dump(starter);
+}
+
+/**
+ * Canonical on-disk text of a service's `.yaml` sidecar. Shared by the pull
+ * writer, the dirty check and the remote diff provider so "what the file
+ * should look like" can't drift between them.
+ */
+export function buildServiceDefinitionYaml(
+  definition: ServiceDefinition,
+  queryConfig?: { timeout: number; maxItems: number },
+): string {
+  return (
+    buildDefinitionHeaderComment() +
+    yaml.dump(collapseServiceDefinition(definition, queryConfig))
+  );
 }

@@ -1,9 +1,16 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import { Base } from "./base";
-import { buildEntityArtifactRelativePaths } from "../../core/utilities/artifact-path";
+import {
+  buildArtifactRelativePath,
+  buildEntityArtifactRelativePaths,
+} from "../../core/utilities/artifact-path";
 import { Config } from "../../config";
 import { Entity } from "../../core/entity/entity";
+import {
+  buildServiceDefinitionYaml,
+  DEFINITION_EXTENSION,
+} from "../service-definitions/templates";
 
 export const REMOTE_SCHEME = "twls-remote";
 
@@ -47,7 +54,22 @@ export class RemoteTextDocumentContentProvider
       console.error(error);
     });
 
-    for (const segments of buildEntityArtifactRelativePaths(newEntity)) {
+    const definitionPaths = newEntity
+      .getServices()
+      .filter((service) => newEntity.getServiceDefinition(service.name))
+      .map((service) =>
+        buildArtifactRelativePath(
+          newEntity.meta,
+          "service",
+          service.name,
+          DEFINITION_EXTENSION,
+        ),
+      );
+
+    for (const segments of [
+      ...buildEntityArtifactRelativePaths(newEntity),
+      ...definitionPaths,
+    ]) {
       this._onDidChange.fire(
         entityUri.with({ path: `/${segments.join("/")}` }),
       );
@@ -86,41 +108,53 @@ export class RemoteTextDocumentContentProvider
       return `Entity not found: ${entityName}`;
     }
 
-    const artifactExtension = path.extname(artifactFilename);
-    const artifactName = path.basename(artifactFilename, artifactExtension);
-
-    if (artifactType === "services") {
-      const service = entity
-        .getServices()
-        .find(
-          (service) =>
-            service.name === artifactName &&
-            service.extension === artifactExtension,
-        );
-
-      if (!service) {
-        return `Service not found: ${artifactName}`;
-      }
-
-      return service.source;
-    }
-
-    if (artifactType === "subscriptions") {
-      const subscription = entity
-        .getSubscriptions()
-        .find(
-          (subscription) =>
-            subscription.name === artifactName &&
-            subscription.extension === artifactExtension,
-        );
-
-      if (!subscription) {
-        return `Subscription not found: ${artifactName}`;
-      }
-
-      return subscription.source;
-    }
-
-    return `Unsupported artifact type: ${artifactType}`;
+    return resolveRemoteArtifactContent(entity, artifactType, artifactFilename);
   }
+}
+
+/**
+ * Resolves the text served for a `twls-remote://` artifact document. Unknown
+ * artifacts get a readable message rather than an error, since VS Code shows
+ * whatever is returned in the diff editor.
+ */
+export function resolveRemoteArtifactContent(
+  entity: Entity,
+  artifactType: string,
+  artifactFilename: string,
+): string {
+  const extension = path.extname(artifactFilename);
+  const name = path.basename(artifactFilename, extension);
+
+  if (artifactType === "services") {
+    if (extension === DEFINITION_EXTENSION) {
+      const definition = entity.getServiceDefinition(name);
+
+      if (!definition) {
+        return `Service definition not found: ${name}`;
+      }
+
+      return buildServiceDefinitionYaml(
+        definition,
+        entity.getServiceQueryConfig(name),
+      );
+    }
+
+    const service = entity
+      .getServices()
+      .find((s) => s.name === name && s.extension === extension);
+
+    return service ? service.source : `Service not found: ${name}`;
+  }
+
+  if (artifactType === "subscriptions") {
+    const subscription = entity
+      .getSubscriptions()
+      .find((s) => s.name === name && s.extension === extension);
+
+    return subscription
+      ? subscription.source
+      : `Subscription not found: ${name}`;
+  }
+
+  return `Unsupported artifact type: ${artifactType}`;
 }

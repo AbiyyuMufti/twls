@@ -23,6 +23,7 @@ import {
 } from "../../core/thingworx/search";
 import {
   readEntityServiceDefinition,
+  writeEntityServiceDefinition,
   writeEntityServiceDefinitions,
 } from "../service-definitions/storage";
 import {
@@ -38,20 +39,18 @@ import {
 import {
   ArtifactKind,
   buildArtifactRelativePath,
-  ResolvedArtifact,
   resolveArtifact,
   buildArtifactFolderRelativePath,
+  parseArtifactPath,
 } from "../../core/utilities/artifact-path";
 import { createStashEntry, StashedFile, StashEntry } from "../stash/model";
 import { StashStore } from "../stash/store";
-import yaml from "js-yaml";
 import {
-  buildDefinitionHeaderComment,
   buildServiceDefinitionTemplate,
+  buildServiceDefinitionYaml,
+  DEFINITION_EXTENSION,
 } from "../service-definitions/templates";
-import { collapseServiceDefinition } from "../service-definitions/collapse";
 import { dedupeByPreferredCase } from "../case-collision/detect";
-import { warnDroppedCaseCollisions } from "../case-collision/warn";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced" | "new";
@@ -388,11 +387,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   }
 
   /**
-   * Snapshots every dirty/deleted local file into a new stash entry, then
-   * resets those files to the last-pulled remote snapshot so `pull()` can
-   * proceed. Only the captured files are rewritten, so an edit that was not
-   * captured can never be overwritten. Returns the number of files stashed
-   * (0 when nothing is dirty).
+   * Snapshots every dirty, deleted or brand-new local file (code files and
+   * `.yaml` sidecars) into a new stash entry, then puts those files back to
+   * the last-pulled remote state so `pull()` can proceed. New files have no
+   * remote counterpart, so they are removed locally instead. Only the
+   * captured files are touched, so an edit that was not captured can never be
+   * overwritten. Returns the number of files stashed (0 when nothing is dirty).
    */
   async stash(): Promise<number> {
     // Refresh first: the watcher that keeps `resourceStates` up to date is
@@ -407,32 +407,30 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     }
 
     const files: StashedFile[] = [];
-    const captured: ResolvedArtifact[] = [];
 
     for (const resourceState of dirtyStates) {
-      const resolved = resolveArtifact(
-        resourceState.resourceUri.fsPath,
-        this._entity.getServices(),
-        this._entity.getSubscriptions(),
-      );
-      if (!resolved) {
+      const parsed = parseArtifactPath(resourceState.resourceUri.fsPath);
+
+      if (!parsed) {
         throw new Error(
-          `${path.basename(resourceState.resourceUri.fsPath)} does not exist on entity ${this._entity.meta.name}`,
+          `${path.basename(resourceState.resourceUri.fsPath)} is not a service or subscription file.`,
         );
       }
 
-      const { kind, artifact } = resolved;
-      captured.push(resolved);
-
       const relativePath = buildArtifactRelativePath(
         this._entity.meta,
-        kind,
-        artifact.name,
-        artifact.extension,
+        parsed.kind,
+        parsed.name,
+        parsed.extension,
       );
 
       if (resourceState.contextValue === "deleted") {
-        files.push({ relativePath, kind, deleted: true, content: "" });
+        files.push({
+          relativePath,
+          kind: parsed.kind,
+          deleted: true,
+          content: "",
+        });
         continue;
       }
 
@@ -441,31 +439,21 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       );
       files.push({
         relativePath,
-        kind,
+        kind: parsed.kind,
         deleted: false,
         content: document.getText(),
       });
     }
 
+    // Saved before anything is reset, so a failure below can't lose an edit.
     const entry = createStashEntry(this._entity.meta.name, files);
     await this.stashStore.save(entry);
 
-    // Reset only the captured files to the last-pulled remote snapshot: this
-    // undoes dirty edits and recreates local deletions without touching any
-    // file that was not stashed.
-    for (const resolved of captured) {
-      if (resolved.kind === "service") {
-        await writeEntityService(
-          this.rootUri,
-          this._entity.meta,
-          resolved.artifact,
-        );
+    for (const resourceState of dirtyStates) {
+      if (resourceState.contextValue === "new") {
+        await this.deleteFile(resourceState.resourceUri);
       } else {
-        await writeEntitySubscription(
-          this.rootUri,
-          this._entity.meta,
-          resolved.artifact,
-        );
+        await this.discard(resourceState.resourceUri);
       }
     }
     await this.updateWorkingTreeGroup();
@@ -558,13 +546,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       const localUri = vscode.Uri.joinPath(this.rootUri, ...file.relativePath);
 
       if (file.deleted) {
-        try {
-          await vscode.workspace.fs.delete(localUri);
-        } catch (error) {
-          if (!(error instanceof vscode.FileSystemError)) {
-            throw error;
-          }
-        }
+        await this.deleteFile(localUri);
       } else {
         await vscode.workspace.fs.writeFile(
           localUri,
@@ -597,6 +579,16 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
    * current remote snapshot.
    */
   async discard(localUri: vscode.Uri): Promise<void> {
+    const parsed = parseArtifactPath(localUri.fsPath);
+
+    if (
+      parsed?.kind === "service" &&
+      parsed.extension === DEFINITION_EXTENSION
+    ) {
+      await this.discardServiceDefinition(parsed.name);
+      return;
+    }
+
     const resolved = resolveArtifact(
       localUri.fsPath,
       this._entity.getServices(),
@@ -624,6 +616,23 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     }
   }
 
+  /** Rewrites a service's `.yaml` sidecar from the current remote snapshot. */
+  private async discardServiceDefinition(serviceName: string): Promise<void> {
+    const definition = this._entity.getServiceDefinition(serviceName);
+
+    if (!definition) {
+      throw new Error(`Service definition not found: ${serviceName}`);
+    }
+
+    await writeEntityServiceDefinition(
+      this.rootUri,
+      this._entity.meta,
+      serviceName,
+      definition,
+      this._entity.getServiceQueryConfig(serviceName),
+    );
+  }
+
   /**
    * Writes local boilerplate for a brand-new service: a `.definition`
    * sidecar plus a stub code file. Purely local — nothing is sent to
@@ -643,7 +652,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
     );
     const definitionUri = vscode.Uri.joinPath(
       this.rootUri,
-      ...buildArtifactRelativePath(this._entity.meta, "service", name, ".yaml"),
+      ...buildArtifactRelativePath(
+        this._entity.meta,
+        "service",
+        name,
+        DEFINITION_EXTENSION,
+      ),
     );
 
     const codeStub =
@@ -671,6 +685,29 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
         resourceState.resourceUri.toString() === localUri.toString() &&
         resourceState.contextValue === "dirty",
     );
+  }
+
+  private async fileExists(uri: vscode.Uri): Promise<boolean> {
+    try {
+      await vscode.workspace.fs.stat(uri);
+      return true;
+    } catch (error) {
+      if (error instanceof vscode.FileSystemError) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /** Deletes a file, treating "already gone" as success. */
+  private async deleteFile(uri: vscode.Uri): Promise<void> {
+    try {
+      await vscode.workspace.fs.delete(uri);
+    } catch (error) {
+      if (!(error instanceof vscode.FileSystemError)) {
+        throw error;
+      }
+    }
   }
 
   private async writeNonDirtyServices(): Promise<void> {
@@ -801,26 +838,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
   private async updateWorkingTreeGroup(): Promise<void> {
     const workingTreeResources: vscode.SourceControlResourceState[] = [];
 
-    const { kept: workingServices, dropped: droppedServices } =
-      dedupeByPreferredCase(this._entity.getServices());
-
-    warnDroppedCaseCollisions(
-      this._entity.meta,
-      droppedServices.map((service) => ({
-        name: service.name,
-        label: "code file",
-      })),
+    const { kept: workingServices } = dedupeByPreferredCase(
+      this._entity.getServices(),
     );
 
-    const { kept: workingSubscriptions, dropped: droppedSubscriptions } =
-      dedupeByPreferredCase(this._entity.getSubscriptions());
-
-    warnDroppedCaseCollisions(
-      this._entity.meta,
-      droppedSubscriptions.map((subscription) => ({
-        name: subscription.name,
-        label: "code file",
-      })),
+    const { kept: workingSubscriptions } = dedupeByPreferredCase(
+      this._entity.getSubscriptions(),
     );
 
     const entries: Array<readonly [Service | Subscription, vscode.Uri]> = [
@@ -879,14 +902,12 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
           this._entity.meta,
           "service",
           service.name,
-          ".yaml",
+          DEFINITION_EXTENSION,
         ),
       );
 
       const queryConfig = this._entity.getServiceQueryConfig(service.name);
-      const canonical =
-        buildDefinitionHeaderComment() +
-        yaml.dump(collapseServiceDefinition(definition, queryConfig));
+      const canonical = buildServiceDefinitionYaml(definition, queryConfig);
 
       let state: State = "synced";
 
@@ -923,18 +944,15 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
           this._entity.meta,
           "service",
           name,
-          ".yaml",
+          DEFINITION_EXTENSION,
         ),
       );
 
-      try {
-        await vscode.workspace.fs.stat(definitionUri);
+      // Manually created code files may have no definition sidecar — skip it then.
+      if (await this.fileExists(definitionUri)) {
         workingTreeResources.push(
           this.toSourceControlResourceState(definitionUri, "new"),
         );
-      } catch {
-        // TODO: GIVES WARNING THAT IT WAS FAILED
-        // Scaffolded without a definition sidecar (manually created code only) — skip.
       }
     }
 
