@@ -19,6 +19,7 @@ export function expandServiceDefinition(
   authoring.params.forEach((param, index) => {
     parameterDefinitions[param.name] = {
       name: param.name,
+      aspects: {},
       description: param.description,
       baseType: param.type,
       ordinal: index + 1,
@@ -41,6 +42,8 @@ export function expandServiceDefinition(
       description: "",
       baseType: authoring.result,
       ordinal: 0,
+      aspects: {},
     },
+    aspects: { isAsync: false },
   } as ServiceDefinition;
 }
