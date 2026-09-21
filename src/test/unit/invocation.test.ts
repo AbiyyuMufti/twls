@@ -3,8 +3,8 @@ import {
   buildServiceInvocationStub,
   formatServiceInvocationResult,
   parseServiceInvocationParams,
-} from "../../service-invocation";
-import type { ServiceDefinition } from "../../entity/zod-service-definition";
+} from "../../features/service-invocation/format";
+import type { ServiceDefinition } from "../../core/entity/service-definition-schema";
 
 suite("service-invocation", () => {
   suite("parseServiceInvocationParams", () => {

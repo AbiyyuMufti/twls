@@ -1,42 +1,29 @@
 import * as vscode from "vscode";
-import { logger } from "./logger";
-import { Model } from "./model";
-import { Repository } from "./repository";
-import { invokeThingService, searchThingsForEntity } from "./thingworx";
+import { CommandRunner } from "../../command-runner";
+import { ThingSearchRow } from "../../core/entity/thing-search";
+import { searchThingsForEntity } from "../../core/thingworx/search";
+import { FeatureCommands } from "../../feature-commands";
+import { logger } from "../../logger";
+import { Repository } from "../sync/repository";
+import { invokeThingService } from "./client";
 import {
   buildServiceInvocationStub,
   formatServiceInvocationResult,
   parseServiceInvocationParams,
-} from "./service-invocation";
-import { ThingSearchRow } from "./entity/zod-thing-search";
-
+} from "./format";
 /**
  * Registers `twls.callService`: a manual, Postman-style command to invoke a
- * service on a live Thing and show the result. Kept separate from
- * `Commands` so this new/experimental feature doesn't touch existing
- * command wiring.
+ * service on a live Thing and show the result.
  */
-export class ServiceInvocationCommands implements vscode.Disposable {
+export class ServiceInvocationCommands implements FeatureCommands {
   private disposables: vscode.Disposable[] = [];
 
-  constructor(private model: Model) {
+  constructor(private runner: CommandRunner) {
     this.disposables.push(
       vscode.commands.registerCommand("twls.callService", () => {
-        this.callService().catch((error: unknown) => {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          logger.error(`Call Service failed: ${message}`, error);
-          void vscode.window.showErrorMessage(message);
-        });
+        this.runner.run("Call Service", () => this.callService());
       }),
     );
-  }
-
-  private async resolveRepository(): Promise<Repository | undefined> {
-    return this.model.showRepositoryPick({
-      placeHolder: "Pick repository",
-      ignoreFocusOut: true,
-    });
   }
 
   /**
@@ -105,7 +92,7 @@ export class ServiceInvocationCommands implements vscode.Disposable {
   }
 
   private async callService(): Promise<void> {
-    const repo = await this.resolveRepository();
+    const repo = await this.runner.resolveRepository();
 
     if (!repo) {
       return;

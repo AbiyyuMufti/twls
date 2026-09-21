@@ -4,7 +4,7 @@ import {
   sortStashEntriesNewestFirst,
   stashEntrySchema,
   stashIdSchema,
-} from "../../stash";
+} from "../../features/stash/model";
 
 suite("stash", () => {
   test("createStashEntry captures entity name and files", () => {

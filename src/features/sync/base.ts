@@ -4,7 +4,7 @@ import {
   entityMap,
   EntityMeta,
   entityMetaSchema,
-} from "./entity/entity";
+} from "../../core/entity/entity";
 
 /**
  * On-disk snapshot store for remote entities.

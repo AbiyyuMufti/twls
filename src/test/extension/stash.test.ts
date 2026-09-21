@@ -3,13 +3,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import * as vscode from "vscode";
-import { buildArtifactRelativePath } from "../../artifact-path";
+import { buildArtifactRelativePath } from "../../core/utilities/artifact-path";
 import { Config } from "../../config";
-import { ThingShape } from "../../entity/thing-shape";
-import { Repository } from "../../repository";
-import { createStashEntry } from "../../stash";
-import { StashStore } from "../../stash-store";
-import { writeEntityServices, writeEntitySubscriptions } from "../../thingworx";
+import { ThingShape } from "../../core/entity/thing-shape";
+import { Repository } from "../../features/sync/repository";
+import { createStashEntry } from "../../features/stash/model";
+import { StashStore } from "../../features/stash/store";
+import {
+  writeEntityServices,
+  writeEntitySubscriptions,
+} from "../../features/sync/storage";
 import {
   getReadingCode,
   thingShapeMeta,
@@ -140,7 +143,10 @@ suite("Repository stash", () => {
     assert.strictEqual(await repo.stash(), 1);
 
     // The file on disk is reset to the last-pulled remote snapshot...
-    assert.strictEqual(await readText(serviceUri("GetReading")), getReadingCode);
+    assert.strictEqual(
+      await readText(serviceUri("GetReading")),
+      getReadingCode,
+    );
 
     // ...and the edit is preserved in the stash instead of being lost.
     const [entry] = await store.list();
@@ -156,7 +162,10 @@ suite("Repository stash", () => {
 
     assert.strictEqual(await repo.stash(), 1);
 
-    assert.strictEqual(await readText(serviceUri("GetReading")), getReadingCode);
+    assert.strictEqual(
+      await readText(serviceUri("GetReading")),
+      getReadingCode,
+    );
 
     const [entry] = await store.list();
     assert.ok(entry);
@@ -246,7 +255,10 @@ suite("Repository stash", () => {
     // No-id apply picks the newest stash for the active entity, not the
     // newer overall one belonging to SomeOtherEntity.
     assert.strictEqual(await repo.stashApply(), 1);
-    assert.strictEqual(await readText(serviceUri("GetReading")), "var mine = true;");
+    assert.strictEqual(
+      await readText(serviceUri("GetReading")),
+      "var mine = true;",
+    );
   });
 
   test("stashApply rejects a stash belonging to another entity", async () => {

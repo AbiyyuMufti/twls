@@ -1,6 +1,7 @@
 import * as assert from "node:assert";
-import type { Service, Subscription } from "../../entity/entity";
-import { ThingShape } from "../../entity/thing-shape";
+import type { Service } from "../../core/entity/service-schema";
+import type { Subscription } from "../../core/entity/subscription-schema";
+import { ThingShape } from "../../core/entity/thing-shape";
 import {
   artifactKindFromFolderName,
   buildArtifactRelativePath,
@@ -8,11 +9,8 @@ import {
   buildEntityArtifactRelativePaths,
   parseArtifactPath,
   resolveArtifact,
-} from "../../artifact-path";
-import {
-  thingShapeMeta,
-  thingShapeSource,
-} from "../fixtures/entity-sources";
+} from "../../core/utilities/artifact-path";
+import { thingShapeMeta, thingShapeSource } from "../fixtures/entity-sources";
 
 suite("artifact-path", () => {
   test("builds a service path under services/", () => {
@@ -131,7 +129,11 @@ suite("artifact-path", () => {
     ];
 
     assert.deepStrictEqual(
-      resolveArtifact("TWLS.Demo/Entity/services/Foo.js", services, subscriptions),
+      resolveArtifact(
+        "TWLS.Demo/Entity/services/Foo.js",
+        services,
+        subscriptions,
+      ),
       { kind: "service", artifact: services[0] },
     );
     assert.deepStrictEqual(

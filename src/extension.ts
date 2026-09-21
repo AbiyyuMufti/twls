@@ -1,17 +1,26 @@
 import * as vscode from "vscode";
-import { Commands } from "./commands";
+import { CommandRunner } from "./command-runner";
+import { FeatureCommands } from "./feature-commands";
+import { RepositoryCommands } from "./features/sync/commands";
+import { Model } from "./features/sync/model";
+import { StashCommands } from "./features/stash/commands";
+import { ServiceInvocationCommands } from "./features/service-invocation/commands";
 import { logger } from "./logger";
-import { Model } from "./model";
-import { ServiceInvocationCommands } from "./service-invocation-commands";
 
 export function activate(context: vscode.ExtensionContext): void {
   const model = new Model(context, vscode.workspace.workspaceFolders);
-  const commands = new Commands(model);
-  const serviceInvocationCommands = new ServiceInvocationCommands(model);
+  const runner = new CommandRunner(model);
+  const features: FeatureCommands[] = [
+    new RepositoryCommands(runner),
+    new StashCommands(runner),
+    new ServiceInvocationCommands(runner),
+  ];
   context.subscriptions.push(
     model,
-    commands,
-    serviceInvocationCommands,
+    ...features,
+    vscode.commands.registerCommand("twls.showOutput", () => {
+      logger.show();
+    }),
     logger,
   );
 }

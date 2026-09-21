@@ -1,5 +1,5 @@
-import type { ServiceDefinition } from "./entity/zod-service-definition";
-import type { ServiceInvocationResult } from "./thingworx";
+import type { ServiceDefinition } from "../../core/entity/service-definition-schema";
+import type { ServiceInvocationResult } from "./client";
 
 /**
  * Parses Postman-style raw JSON input for a service call body. Must be a

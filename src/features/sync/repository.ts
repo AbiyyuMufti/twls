@@ -1,49 +1,52 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import { Config } from "./config";
+import { Config } from "../../config";
 import { REMOTE_SCHEME } from "./remote";
-import { normalizeEol } from "./text";
+import { normalizeEol } from "../../core/utilities/text";
 import {
   Entity,
   EntityMeta,
   getWatchedFilePattern,
-  Service,
-  Subscription,
-} from "./entity/entity";
+} from "../../core/entity/entity";
+import type { Service } from "../../core/entity/service-schema";
+import type { Subscription } from "../../core/entity/subscription-schema";
 
 import {
   fetchEntity,
   fetchProjectEntity,
-  ProjectMeta,
+  updateEntity,
+} from "../../core/thingworx/entity";
+import { ProjectMeta } from "../../core/entity/project";
+import { searchEntityMeta, searchProjectMeta } from "../../core/thingworx/search";
+import {
   readEntityServiceDefinition,
+  writeEntityServiceDefinitions,
+} from "../service-definitions/storage";
+import {
   readEntityServices,
   readEntitySubscriptions,
-  searchEntityMeta,
-  searchProjectMeta,
-  updateEntity,
   writeEntityService,
-  writeEntityServiceDefinitions,
   writeEntityServices,
   writeEntitySubscription,
   writeEntitySubscriptions,
   writeServices,
   writeSubscriptions,
-} from "./thingworx";
+} from "./storage";
 import {
   ArtifactKind,
   buildArtifactRelativePath,
   ResolvedArtifact,
   resolveArtifact,
   buildArtifactFolderRelativePath,
-} from "./artifact-path";
-import { createStashEntry, StashedFile, StashEntry } from "./stash";
-import { StashStore } from "./stash-store";
+} from "../../core/utilities/artifact-path";
+import { createStashEntry, StashedFile, StashEntry } from "../stash/model";
+import { StashStore } from "../stash/store";
 import yaml from "js-yaml";
 import {
   buildDefinitionHeaderComment,
   buildServiceDefinitionTemplate,
-  collapseServiceDefinition,
-} from "./entity/zod-service-definition";
+} from "../service-definitions/templates";
+import { collapseServiceDefinition } from "../service-definitions/collapse";
 
 /** Per-artifact sync status shown in the source-control "Changes" group. */
 type State = "dirty" | "deleted" | "synced" | "new";

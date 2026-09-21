@@ -1,6 +1,6 @@
 import * as assert from "node:assert";
-import { ThingShape } from "../../entity/thing-shape";
-import { ThingTemplate } from "../../entity/thing-template";
+import { ThingShape } from "../../core/entity/thing-shape";
+import { ThingTemplate } from "../../core/entity/thing-template";
 import {
   dualTableThingTemplateSource,
   getHistorySql,

@@ -1,6 +1,6 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import { Config } from "./config";
+import { Config } from "../../config";
 import { REMOTE_SCHEME, RemoteTextDocumentContentProvider } from "./remote";
 import { Repository } from "./repository";
 
