@@ -5,6 +5,7 @@ import { REMOTE_SCHEME } from "./remote";
 import { normalizeEol } from "../../core/utilities/text";
 import {
   Entity,
+  entityMap,
   EntityMeta,
   getWatchedFilePattern,
 } from "../../core/entity/entity";
@@ -310,6 +311,11 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
    * ThingWorx is ahead.
    */
   async push(): Promise<EntityDataCount> {
+    const draft = new entityMap[this._entity.meta.type](
+      this._entity.meta,
+      structuredClone(this._entity.getSource()),
+    );
+
     if (this.workingTreeGroup.resourceStates.length === 0) {
       throw new Error("No changes to push.");
     }
@@ -343,7 +349,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
           );
         }
 
-        this._entity.createService(
+        draft.createService(
           service.name,
           localDefinition.definition,
           service.source,
@@ -354,13 +360,13 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       }
 
       if (localDefinition) {
-        this._entity.updateServiceDefinition(
+        draft.updateServiceDefinition(
           service.name,
           localDefinition.definition,
           localDefinition.queryConfig,
         );
       }
-      this._entity.updateService(service.name, service.source);
+      draft.updateService(service.name, service.source);
     }
 
     const localSubscriptions = await readEntitySubscriptions(
@@ -368,16 +374,10 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
       this._entity.meta,
     );
     for (const subscription of localSubscriptions) {
-      this._entity.updateSubscription(subscription.name, subscription.source);
+      draft.updateSubscription(subscription.name, subscription.source);
     }
 
-    await updateEntity(
-      this.config,
-      this._entity,
-      this.sourceControl.inputBox.value,
-    ).catch(() => {
-      throw new Error("Failed to push");
-    });
+    await updateEntity(this.config, draft, this.sourceControl.inputBox.value);
 
     const pushedEntity = await fetchEntity(this.config, this._entity.meta);
     this.setEntity(pushedEntity);
