@@ -591,9 +591,7 @@ export class Repository implements vscode.QuickDiffProvider, vscode.Disposable {
 
     if (
       parsed?.kind === "service" &&
-      !this._entity
-        .getServices()
-        .some((service) => service.name === parsed.name)
+      parsed.extension === DEFINITION_EXTENSION
     ) {
       await this.discardServiceDefinition(parsed.name);
       return;
