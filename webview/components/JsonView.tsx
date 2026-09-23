@@ -49,7 +49,11 @@ function JsonNode({ value, name }: JsonNodeProps): JSX.Element {
 
         <div style={{ paddingLeft: "20px" }}>
           {value.map((item, index) => (
-            <JsonNode key={index} name={String(index)} value={item} />
+            <JsonNode
+              key={index}
+              name={String(index)}
+              value={item as unknown}
+            />
           ))}
         </div>
       </details>
@@ -70,14 +74,14 @@ function JsonNode({ value, name }: JsonNodeProps): JSX.Element {
 
         <div style={{ paddingLeft: "20px" }}>
           {entries.map(([key, child]) => (
-            <JsonNode key={key} name={key} value={child} />
+            <JsonNode key={key} name={key} value={child as unknown} />
           ))}
         </div>
       </details>
     );
   }
 
-  return <Primitive name={name} value={String(value)} />;
+  return <Primitive name={name} value={String(value as unknown)} />;
 }
 
 function Primitive({

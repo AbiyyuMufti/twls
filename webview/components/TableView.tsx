@@ -1,5 +1,5 @@
 import { JSX, useState } from "react";
-import { TableColumn } from "../../../shared/service-invocation-result";
+import { TableColumn } from "../../shared/service-invocation-result";
 import { JsonView } from "./JsonView";
 
 type Props = {
@@ -257,7 +257,7 @@ function formatValue(value: unknown): string {
     return JSON.stringify(value);
   }
 
-  return String(value);
+  return String(value as string);
 }
 
 const headerStyle: React.CSSProperties = {

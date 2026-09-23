@@ -1,5 +1,5 @@
 import { JSX, useMemo, useState } from "react";
-import { FormattedResponse } from "../../../shared/service-invocation-result";
+import { FormattedResponse } from "../../shared/service-invocation-result";
 import { TableView } from "./TableView";
 import { JsonView } from "./JsonView";
 import { HtmlView } from "./HtmlView";
@@ -76,28 +76,9 @@ export function ResponseView({ response, returnType }: Props): JSX.Element {
         <JsonView value={jsonValue} />
       )}
 
-      {activeTab === "html" && specialViews.html && (
-        <HtmlView
-          html={getSingleTableValue(response)}
-          focused={focused}
-          onToggleFocus={() => setFocused((value) => !value)}
-        />
-      )}
-
-      {activeTab === "echart" && specialViews.echart && (
-        <EChartView
-          option={response.value}
-          focused={focused}
-          onToggleFocus={() => setFocused((value) => !value)}
-        />
-      )}
-    </>
-  );
-
-  if (focused) {
-    return (
-      <section>
-        {activeTab === "html" && specialViews.html && (
+      {activeTab === "html" &&
+        specialViews.html &&
+        response.kind === "table" && (
           <HtmlView
             html={getSingleTableValue(response)}
             focused={focused}
@@ -105,13 +86,40 @@ export function ResponseView({ response, returnType }: Props): JSX.Element {
           />
         )}
 
-        {activeTab === "echart" && specialViews.echart && (
+      {activeTab === "echart" &&
+        specialViews.echart &&
+        response.kind === "json" && (
           <EChartView
             option={response.value}
             focused={focused}
             onToggleFocus={() => setFocused((value) => !value)}
           />
         )}
+    </>
+  );
+
+  if (focused) {
+    return (
+      <section>
+        {activeTab === "html" &&
+          specialViews.html &&
+          response.kind === "table" && (
+            <HtmlView
+              html={getSingleTableValue(response)}
+              focused={focused}
+              onToggleFocus={() => setFocused((value) => !value)}
+            />
+          )}
+
+        {activeTab === "echart" &&
+          specialViews.echart &&
+          response.kind === "json" && (
+            <EChartView
+              option={response.value}
+              focused={focused}
+              onToggleFocus={() => setFocused((value) => !value)}
+            />
+          )}
       </section>
     );
   }
@@ -229,7 +237,7 @@ function getSingleTableValue(
     return "";
   }
 
-  return String(value);
+  return String(value as string);
 }
 
 function isEChartOption(value: unknown): boolean {
