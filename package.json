@@ -17,7 +17,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "contributes": {
     "commands": [
       {
@@ -115,24 +115,32 @@
     "pretest:extension": "npm run compile && npm run lint",
     "test:extension": "vscode-test",
     "lint": "eslint src",
-    "package": "vsce package --skip-license"
+    "package": "vsce package --skip-license",
+    "build:webview": "vite build --config webview/vite.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/react": "^19.x",
+    "@types/react-dom": "^19.x",
     "@types/vscode": "^1.108.1",
+    "@vitejs/plugin-react": "^5.x",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
     "eslint": "^9.39.2",
     "mocha": "^11.7.4",
     "prettier": "3.8.1",
+    "react": "^19.x",
+    "react-dom": "^19.x",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.52.0"
+    "typescript-eslint": "^8.52.0",
+    "vite": "^7.x"
   },
   "dependencies": {
+    "echarts": "^6.1.0",
     "js-yaml": "^5.4.2",
     "zod": "^4.3.6"
   }

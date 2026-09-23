@@ -6,7 +6,10 @@ export default defineConfig(
   eslint.configs.recommended,
   typescriptEslint.configs.recommendedTypeChecked,
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
+  },
+  {
+    ignores: ["dist/**"],
   },
   {
     plugins: {

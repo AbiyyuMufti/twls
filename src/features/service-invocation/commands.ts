@@ -8,9 +8,11 @@ import { Repository } from "../sync/repository";
 import { invokeThingService } from "./client";
 import {
   buildServiceInvocationStub,
-  formatServiceInvocationResult,
+  // formatServiceInvocationResult,
+  formatServiceInvocationView,
   parseServiceInvocationParams,
 } from "./format";
+import { ResultPanel } from "./result-panel";
 /**
  * Registers `twls.callService`: a manual, Postman-style command to invoke a
  * service on a live Thing and show the result.
@@ -18,7 +20,10 @@ import {
 export class ServiceInvocationCommands implements FeatureCommands {
   private disposables: vscode.Disposable[] = [];
 
-  constructor(private runner: CommandRunner) {
+  constructor(
+    private runner: CommandRunner,
+    private extensionUri: vscode.Uri,
+  ) {
     this.disposables.push(
       vscode.commands.registerCommand("twls.callService", () => {
         this.runner.run("Call Service", () => this.callService());
@@ -127,6 +132,9 @@ export class ServiceInvocationCommands implements FeatureCommands {
     }
 
     const definition = repo.entity.getServiceDefinition(servicePick.label);
+    if (!definition) {
+      throw new Error("Service doesnt contains service definitions");
+    }
     const stub = buildServiceInvocationStub(definition);
 
     const rawParams = await vscode.window.showInputBox({
@@ -154,18 +162,30 @@ export class ServiceInvocationCommands implements FeatureCommands {
       `${servicePick.label} on ${thingName}: ${result.status} ${result.statusText}`,
     );
 
-    const content = formatServiceInvocationResult(
+    // const content = formatServiceInvocationResult(
+    //   thingName,
+    //   servicePick.label,
+    //   params,
+    //   result,
+    // );
+
+    // const document = await vscode.workspace.openTextDocument({
+    //   content,
+    //   language: "jsonc",
+    // });
+    // await vscode.window.showTextDocument(document, { preview: true });
+
+    const serviceOutput = definition.resultType.baseType;
+
+    const viewModel = formatServiceInvocationView(
       thingName,
       servicePick.label,
+      serviceOutput,
       params,
       result,
     );
 
-    const document = await vscode.workspace.openTextDocument({
-      content,
-      language: "jsonc",
-    });
-    await vscode.window.showTextDocument(document, { preview: true });
+    ResultPanel.show(this.extensionUri, viewModel);
 
     if (!result.ok) {
       void vscode.window.showWarningMessage(

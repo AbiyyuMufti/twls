@@ -5,12 +5,14 @@
     "outDir": "out",
     "lib": ["ES2022"],
     "sourceMap": true,
-    "rootDir": "src",
+    "rootDir": ".",
     "strict": true /* enable all strict type-checking options */,
     /* Additional Checks */
     "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
     "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
     "noUnusedParameters": true /* Report errors on unused parameters. */,
-    "noUncheckedIndexedAccess": true /* Add undefined to a type when accessed using an index. */
-  }
+    "noUncheckedIndexedAccess": true /* Add undefined to a type when accessed using an index. */,
+    "types": ["node", "vscode", "mocha"]
+  },
+  "include": ["src/**/*.ts", "shared/**/*.ts"]
 }

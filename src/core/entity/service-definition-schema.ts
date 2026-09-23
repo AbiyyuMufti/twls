@@ -43,6 +43,10 @@ export const KNOWN_BASE_TYPES = [
   "BOOLEAN",
   "DATETIME",
   "INFOTABLE",
+  "NOTHING",
+  "JSON",
+  "HTML",
+  "XML",
 ] as const;
 
 /** Lean, human-authored parameter entry inside a `.yaml` file. */

@@ -13,7 +13,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const features: FeatureCommands[] = [
     new RepositoryCommands(runner),
     new StashCommands(runner),
-    new ServiceInvocationCommands(runner),
+    new ServiceInvocationCommands(runner, context.extensionUri),
   ];
   context.subscriptions.push(
     model,

@@ -1,4 +1,9 @@
 import type { ServiceDefinition } from "../../core/entity/service-definition-schema";
+import {
+  FormattedResponse,
+  isInfoTableResult,
+  ServiceInvocationViewModel,
+} from "../../../shared/service-invocation-result";
 import type { ServiceInvocationResult } from "./client";
 
 /**
@@ -83,4 +88,65 @@ export function formatServiceInvocationResult(
       ? JSON.stringify(result.jsonBody, null, 2)
       : result.rawBody,
   ].join("\n");
+}
+
+export function formatServiceResponse(
+  returnType: string,
+  jsonBody: unknown,
+): FormattedResponse {
+  if (returnType === "NOTHING") {
+    return {
+      kind: "nothing",
+    };
+  }
+
+  if (isInfoTableResult(jsonBody)) {
+    return {
+      kind: "table",
+      columns: Object.values(jsonBody.dataShape.fieldDefinitions)
+        .sort((a, b) => a.ordinal - b.ordinal)
+        .map((definition) => ({
+          name: definition.name,
+          baseType: definition.baseType,
+        })),
+      rows: jsonBody.rows,
+    };
+  }
+
+  return {
+    kind: "json",
+    value: jsonBody,
+  };
+}
+
+export function formatServiceInvocationView(
+  thingName: string,
+  serviceName: string,
+  returnType: string,
+  params: Record<string, unknown>,
+  result: ServiceInvocationResult,
+): ServiceInvocationViewModel {
+  return {
+    status: {
+      ok: result.ok,
+      code: result.status,
+      text: result.statusText,
+    },
+
+    thingName,
+    serviceName,
+    returnType,
+
+    request: {
+      params,
+    },
+
+    response:
+      result.jsonBody !== undefined
+        ? formatServiceResponse(returnType, result.jsonBody)
+        : {
+            kind: "text",
+            value: result.rawBody,
+          },
+  };
 }
