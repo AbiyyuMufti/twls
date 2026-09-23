@@ -13,10 +13,13 @@ export default defineConfig({
     outDir: resolve(__dirname, "../dist/webview"),
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, "main.tsx"),
+      input: {
+        "result-panel": resolve(__dirname, "ResultPanel/main.tsx"),
+        sidebar: resolve(__dirname, "Sidebar/main.tsx"),
+      },
       output: {
-        entryFileNames: "main.js",
-        assetFileNames: "main[extname]",
+        entryFileNames: "[name].js",
+        assetFileNames: "[name][extname]",
       },
     },
   },

@@ -6,6 +6,7 @@ import { Model } from "./features/sync/model";
 import { StashCommands } from "./features/stash/commands";
 import { ServiceInvocationCommands } from "./features/service-invocation/commands";
 import { logger } from "./logger";
+import { SidebarView } from "./features/sidebar/view";
 
 export function activate(context: vscode.ExtensionContext): void {
   const model = new Model(context, vscode.workspace.workspaceFolders);
@@ -15,9 +16,12 @@ export function activate(context: vscode.ExtensionContext): void {
     new StashCommands(runner),
     new ServiceInvocationCommands(runner, context.extensionUri),
   ];
+  const sidebar = new SidebarView(context.extensionUri);
+
   context.subscriptions.push(
     model,
     ...features,
+    vscode.window.registerWebviewViewProvider(SidebarView.viewType, sidebar),
     vscode.commands.registerCommand("twls.showOutput", () => {
       logger.show();
     }),

@@ -1,5 +1,5 @@
 import { JSX } from "react";
-import { ServiceInvocationViewModel } from "../../shared/service-invocation-result";
+import { ServiceInvocationViewModel } from "../../../shared/service-invocation-result";
 
 type Props = {
   thingName: string;

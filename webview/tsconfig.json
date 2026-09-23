@@ -10,5 +10,5 @@
     "noEmit": true,
     "types": ["react", "react-dom"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "../shared/**/*.ts", "vscode-api.ts"]
+  "include": ["**/*.ts", "**/*.tsx", "../shared/**/*.ts"]
 }

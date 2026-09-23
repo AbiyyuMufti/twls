@@ -1,5 +1,5 @@
 import { JSX, useState } from "react";
-import { TableColumn } from "../../shared/service-invocation-result";
+import { TableColumn } from "../../../shared/service-invocation-result";
 import { JsonView } from "./JsonView";
 
 type Props = {

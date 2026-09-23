@@ -1,5 +1,5 @@
 import { JSX, useMemo, useState } from "react";
-import { FormattedResponse } from "../../shared/service-invocation-result";
+import { FormattedResponse } from "../../../shared/service-invocation-result";
 import { TableView } from "./TableView";
 import { JsonView } from "./JsonView";
 import { HtmlView } from "./HtmlView";

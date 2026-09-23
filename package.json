@@ -104,6 +104,25 @@
           "when": "scmProvider == twls"
         }
       ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "twls",
+          "title": "TWLS",
+          "icon": "resources/thingworx.svg"
+        }
+      ]
+    },
+    "views": {
+      "twls": [
+        {
+          "type": "webview",
+          "id": "twls.sidebar",
+          "name": "TWLS",
+          "icon": "resources/thingworx.svg"
+        }
+      ]
     }
   },
   "scripts": {

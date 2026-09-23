@@ -1,9 +1,9 @@
 import { JSX, useEffect, useState } from "react";
-import { vscodeApi } from "./vscode-api";
+import { vscodeApi } from "../vscode-api";
 import {
   ServiceInvocationViewModel,
   WebviewMessage,
-} from "../shared/service-invocation-result";
+} from "../../shared/service-invocation-result";
 import { ResultHeader } from "./components/ResultHeader";
 import { RequestView } from "./components/RequestView";
 import { ResponseView } from "./components/ResponseView";

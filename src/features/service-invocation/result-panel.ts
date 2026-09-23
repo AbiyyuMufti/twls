@@ -64,7 +64,12 @@ export class ResultPanel {
 
   private buildHtml(): string {
     const scriptUri = this.panel.webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "main.js"),
+      vscode.Uri.joinPath(
+        this.extensionUri,
+        "dist",
+        "webview",
+        "result-panel.js",
+      ),
     );
     const nonce = String(Date.now());
 
@@ -76,7 +81,11 @@ export class ResultPanel {
       </head>
       <body>
       <div id="root"></div>
-      <script nonce="${nonce}" src="${scriptUri.toString()}"></script>
+      <script
+        type="module"
+        nonce="${nonce}"
+        src="${scriptUri.toString()}"
+      ></script>
       </body>
       </html>`;
   }
