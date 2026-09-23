@@ -16,7 +16,7 @@ export function activate(context: vscode.ExtensionContext): void {
     new StashCommands(runner),
     new ServiceInvocationCommands(runner, context.extensionUri),
   ];
-  const sidebar = new SidebarView(context.extensionUri);
+  const sidebar = new SidebarView(context.extensionUri, runner);
 
   context.subscriptions.push(
     model,

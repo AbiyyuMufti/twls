@@ -1,9 +1,7 @@
 import yaml from "js-yaml";
-import {
-  KNOWN_BASE_TYPES,
-  ServiceDefinition,
-} from "../../core/entity/service-definition-schema";
+import { ServiceDefinition } from "../../core/entity/service-definition-schema";
 import { collapseServiceDefinition } from "./collapse";
+import { KNOWN_BASE_TYPES } from "../../../shared/thingworx-types";
 
 export const DEFINITION_EXTENSION = ".yaml";
 
