@@ -3,6 +3,7 @@ import "./styles.css";
 import { vscodeApi } from "../vscode-api";
 import Section from "./components/Section";
 import CommandRow from "./components/CommandRow";
+import { ServiceInvocationPanel } from "./components/ServiceInvocationPanel";
 
 interface SidebarService {
   name: string;
@@ -94,15 +95,9 @@ export function App(): ReactNode {
       </Section>
 
       <Section title="Services" defaultOpen>
-        <CommandRow icon="+" label="New Service" command="twls.newService" />
-
-        <CommandRow icon="▶" label="Call Service" command="twls.callService" />
-      </Section>
-
-      <Section title="Services" defaultOpen>
-        {services.map((service) => (
-          <div key={service.name}>{service.name}</div>
-        ))}
+        {/* <CommandRow icon="+" label="New Service" command="twls.newService" /> */}
+        {/* <CommandRow icon="▶" label="Call Service" command="twls.callService" /> */}
+        <ServiceInvocationPanel services={services}></ServiceInvocationPanel>
       </Section>
     </main>
   );
