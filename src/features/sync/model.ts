@@ -50,16 +50,6 @@ export class Model implements vscode.Disposable {
     this.configWatcher = vscode.workspace.createFileSystemWatcher(
       Config.globPattern,
     );
-
-    folders?.forEach((folder) => {
-      this.addRepository(folder.uri).catch((error) => {
-        console.error(error);
-      });
-    });
-
-    this.configWatcher = vscode.workspace.createFileSystemWatcher(
-      Config.globPattern,
-    );
     this.configWatcher.onDidCreate((e) => {
       this.addRepository(Config.getRootUri(e)).catch((error) => {
         console.error(error);
