@@ -111,7 +111,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "test": "mocha --ui tdd --timeout 10000 \"out/test/unit/*.test.js\"",
+    "test": "mocha --ui tdd --timeout 10000 \"out/src/test/unit/*.test.js\"",
     "pretest:extension": "npm run compile && npm run lint",
     "test:extension": "vscode-test",
     "lint": "eslint src",
