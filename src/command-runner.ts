@@ -13,8 +13,16 @@ export class CommandRunner {
   async resolveRepository(
     rootUri?: vscode.Uri,
   ): Promise<Repository | undefined> {
+    await this.model.waitUntilReady();
+
     if (rootUri) {
       return this.model.getRepository(rootUri);
+    }
+
+    const repositories = this.model.getRepositories();
+
+    if (repositories.size === 1) {
+      return repositories.values().next().value;
     }
 
     return this.model.showRepositoryPick({

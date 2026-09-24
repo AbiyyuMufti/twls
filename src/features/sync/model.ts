@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { Config } from "../../config";
 import { REMOTE_SCHEME, RemoteTextDocumentContentProvider } from "./remote";
 import { Repository } from "./repository";
+import { logger } from "../../logger";
 
 /**
  * Owns the extension's live state: one {@link Repository} per workspace folder
@@ -16,16 +17,35 @@ export class Model implements vscode.Disposable {
   private configWatcher: vscode.FileSystemWatcher;
   private remote: RemoteTextDocumentContentProvider;
   private disposables: vscode.Disposable[] = [];
+  private readonly initialization: Promise<void>;
 
   constructor(
     context: vscode.ExtensionContext,
     folders: readonly vscode.WorkspaceFolder[] | undefined,
   ) {
-    folders?.forEach((folder) => {
-      this.addRepository(folder.uri).catch((error) => {
-        console.error(error);
-      });
-    });
+    this.initialization = Promise.all(
+      (folders ?? []).map(async (folder) => {
+        try {
+          await this.addRepository(folder.uri);
+        } catch (error) {
+          console.error(error);
+          logger.error(
+            `Failed to initialize repository ${folder.uri.toString()}`,
+            error,
+          );
+          void vscode.window
+            .showErrorMessage(
+              `Failed to initialize repository ${folder.uri.toString()}`,
+              "Show Output",
+            )
+            .then((selection) => {
+              if (selection === "Show Output") {
+                logger.show();
+              }
+            });
+        }
+      }),
+    ).then(() => {});
 
     this.configWatcher = vscode.workspace.createFileSystemWatcher(
       Config.globPattern,
@@ -70,6 +90,14 @@ export class Model implements vscode.Disposable {
   getRepository(rootUri: vscode.Uri): Repository | undefined {
     const key = rootUri.toString();
     return this.repositories.get(key);
+  }
+
+  getRepositories(): Map<string, Repository> {
+    return this.repositories;
+  }
+
+  async waitUntilReady(): Promise<void> {
+    await this.initialization;
   }
 
   /**
